@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 const ProductItem = ({ id, image, name }) => {
   return (
-    <Link className="text-gray-700 cursor-pointer" to={`/products/${id}`}>
+    <Link className="text-gray-700 cursor-pointer" to={`/collection/${id}`}>
       <div>
         <img className="object-cover object-center w-full h-60 max-w-full rounded-lg"
           src={image[0]}
