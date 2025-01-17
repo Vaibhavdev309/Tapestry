@@ -17,7 +17,7 @@ function classNames(...classes) {
 }
 
 export default function Navbar() {
-  const {setShowSearch} = useContext(ShopContext);
+  const {setShowSearch, getCartCount} = useContext(ShopContext);
   return (
     <Disclosure as="nav" className="sticky top-0 left-0 w-full bg-gray-800 z-50">
       <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
@@ -67,6 +67,7 @@ export default function Navbar() {
               <span className="sr-only">View notifications</span>
               <BellIcon aria-hidden="true" className="size-6" />
             </button>
+            <Link to={"/cart"}>{getCartCount()}</Link>
 
             {/* Profile dropdown */}
             <Menu as="div" className="relative ml-3">
