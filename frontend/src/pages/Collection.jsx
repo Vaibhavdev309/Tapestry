@@ -5,7 +5,15 @@ import Title from "../components/Title";
 import ProductItem from "../components/ProductItem.jsx";
 
 const sizeOrder = ["1X1", "1X2", "1X3", "3X1", "2X1", "3X3", "6X6"];
-const typeOrder = ["Buddha", "Ganesha", "Lakshmi", "Radha", "Radha Krishna", "Hunting", "Holi"];
+const typeOrder = [
+  "Buddha",
+  "Ganesha",
+  "Lakshmi",
+  "Radha",
+  "Radha Krishna",
+  "Hunting",
+  "Holi",
+];
 
 const Collection = () => {
   const { products, search, showSearch } = useContext(ShopContext);
@@ -33,8 +41,10 @@ const Collection = () => {
 
   const applyFilter = () => {
     let filteredProducts = products.slice();
-    if(showSearch && search){
-      filteredProducts = filteredProducts.filter(item => item.name. toLowerCase(). includes(search.toLowerCase()))
+    if (showSearch && search) {
+      filteredProducts = filteredProducts.filter((item) =>
+        item.name.toLowerCase().includes(search.toLowerCase())
+      );
     }
     if (category.length > 0) {
       filteredProducts = filteredProducts.filter((item) =>
@@ -52,18 +62,22 @@ const Collection = () => {
 
   useEffect(() => {
     applyFilter();
-  }, [category, subCategory, search, showSearch]);
+  }, [category, subCategory, search, showSearch, products]);
 
   const groupAndSortProducts = () => {
     let groupedProducts = {};
 
     if (sortType === "Size") {
       sizeOrder.forEach((size) => {
-        groupedProducts[size] = filterProducts.filter((product) => product.subCategory === size);
+        groupedProducts[size] = filterProducts.filter(
+          (product) => product.subCategory === size
+        );
       });
     } else if (sortType === "Type") {
       typeOrder.forEach((type) => {
-        groupedProducts[type] = filterProducts.filter((product) => product.category === type);
+        groupedProducts[type] = filterProducts.filter(
+          (product) => product.category === type
+        );
       });
     }
 
