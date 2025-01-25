@@ -40,14 +40,12 @@ const Add = ({ token }) => {
         formData,
         { headers: { token } }
       );
-      console.log(response.data);
       if (response.data.success) {
         toast.success("Product Added Successfully");
       } else {
         toast.error("Something went wrong");
       }
     } catch (error) {
-      console.log(error);
       toast.error("Something went wrong");
     } finally {
       setLoading(false);

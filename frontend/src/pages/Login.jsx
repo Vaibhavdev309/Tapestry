@@ -27,16 +27,13 @@ const Login = () => {
           password,
         });
       }
-      console.log(response.data);
       if (response.data.success) {
-        console.log(response.data);
         setToken(response.data.token);
         localStorage.setItem("token", response.data.token);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error.message);
       toast.error(error.message);
     }
   };

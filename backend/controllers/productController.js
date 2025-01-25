@@ -2,8 +2,6 @@ import cloudinary from "cloudinary";
 import productModel from "../models/productModel.js";
 const addProduct = async (req, res) => {
   try {
-    console.log(req.body);
-    console.log(req.files.image1);
     const {
       name,
       description,
@@ -44,7 +42,6 @@ const addProduct = async (req, res) => {
     await product.save();
     res.json({ success: true, message: "Product Added" });
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -53,7 +50,6 @@ const listProduct = async (req, res) => {
     const products = await productModel.find({});
     res.json({ success: true, message: products });
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -62,7 +58,6 @@ const removeProduct = async (req, res) => {
     await productModel.findByIdAndDelete(req.body.id);
     res.json({ success: true, message: "Prouct Removed" });
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };
@@ -72,7 +67,6 @@ const singleProduct = async (req, res) => {
     const product = await productModel.findById(productId);
     res.json({ sucess: true, message: product });
   } catch (error) {
-    console.log(error);
     res.json({ success: false, message: error.message });
   }
 };

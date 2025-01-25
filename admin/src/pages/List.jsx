@@ -8,14 +8,12 @@ const List = ({ token }) => {
   const fetchList = async () => {
     try {
       const response = await axios.get(backendUrl + "/api/product/list");
-      console.log(response.data);
       if (response.data.success) {
         setList(response.data.message);
       } else {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error.message);
       toast.error(error.message);
     }
   };
@@ -28,7 +26,6 @@ const List = ({ token }) => {
         },
         { headers: { token } }
       );
-      console.log(response.data);
       if (response.data.success) {
         toast.success(response.data.message);
         await fetchList();
@@ -36,7 +33,6 @@ const List = ({ token }) => {
         toast.error(response.data.message);
       }
     } catch (error) {
-      console.log(error.message);
       toast.error(error.message);
     }
   };
