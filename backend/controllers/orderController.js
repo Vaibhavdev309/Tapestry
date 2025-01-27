@@ -24,10 +24,11 @@ const placeOrder = async (req, res) => {
 
 const allOrders = async (req, res) => {
   try {
-    const orders = await orderModel.find();
+    const orders = await orderModel.find({});
     res.json({ success: true, orders });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
   }
 };
 
@@ -42,15 +43,14 @@ const userOrders = async (req, res) => {
 };
 
 const updateStatus = async (req, res) => {
-  // try {
-  //     const { orderId, status } = req.body;
-  //     await orderModel.findByIdAndUpdate(order
-  //     Id, { status });
-  //     res.json({ success: true, message: "Status updated" });
-  // }
-  // catch (error) {
-  //     res.status(500).json({ message: error.message });
-  // }
+  try {
+    const { orderId, status } = req.body;
+    await orderModel.findByIdAndUpdate(orderId, { status });
+    res.json({ success: true, message: "Status updated" });
+  } catch (error) {
+    console.log(error.message);
+    res.json({ success: false, message: error.message });
+  }
 };
 
 export { placeOrder, allOrders, userOrders, updateStatus };

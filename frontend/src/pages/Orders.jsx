@@ -66,7 +66,14 @@ const Orders = () => {
                   <p>Size: {item.size || "M"}</p>
                 </div>
                 <p className="mt-2">
-                  Date: <span className="text-gray-400">{item.date}</span>
+                  Date:{" "}
+                  <span className="text-gray-400">
+                    {new Date(item.Date).toDateString()}
+                  </span>
+                </p>
+                <p className="mt-2">
+                  Payment:{" "}
+                  <span className="text-gray-400">{item.paymentMethod}</span>
                 </p>
               </div>
             </div>
@@ -77,7 +84,10 @@ const Orders = () => {
                   {item.status || "Ready To Ship"}
                 </p>
               </div>
-              <button className="border px-4 py-2 text-sm font-medium rounded-sm">
+              <button
+                onClick={loadOrderData}
+                className="border px-4 py-2 text-sm font-medium rounded-sm"
+              >
                 Track Order
               </button>
             </div>
