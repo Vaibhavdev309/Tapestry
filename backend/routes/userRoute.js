@@ -4,6 +4,8 @@ import {
   registerUser,
   adminLogin,
 } from "../controllers/userController.js";
+import { accessChat } from "../controllers/chatController.js";
+import authUser from "../middleware/authUser.js";
 
 const userRouter = express.Router();
 

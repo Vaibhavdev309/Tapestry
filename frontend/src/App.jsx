@@ -23,7 +23,7 @@ const App = () => {
       <SearchBar />
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/chats" element={<Chat />} />
+        <Route path="/chat" element={<Chat />} />
         <Route path="/about" element={<About />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/collection" element={<Collection />} />

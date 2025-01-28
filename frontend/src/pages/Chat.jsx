@@ -2,17 +2,25 @@ import React, { useState } from "react";
 import { backendUrl } from "../../../admin/src/App";
 import axios from "axios";
 import { useEffect } from "react";
+import { useContext } from "react";
+import { ShopContext } from "../context/ShopContext";
+import { toast } from "react-toastify";
 
 const Chat = () => {
+  const { token } = useContext(ShopContext);
   const [chats, setChats] = useState([]);
   const fetchChats = async () => {
-    const { data } = await axios.get(backendUrl + "/api/chat");
-    setChats(data);
+    const response = await axios.get(backendUrl + "/api/chat/user", {
+      headers: { token },
+    });
+    if (response.data.success) {
+      setChats(response.data.chats);
+    }
   };
   useEffect(() => {
     fetchChats();
-  }, []);
-  return <div>{chats.map()}</div>;
+  }, [token]);
+  return <div>Hello</div>;
 };
 
 export default Chat;
