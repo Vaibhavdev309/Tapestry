@@ -1,28 +1,59 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { backendUrl } from "../App";
 
-const Chat = ({ token }) => {
+const Chat = ({ token, isAdmin }) => {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const messagesEndRef = useRef(null); // For auto-scrolling
 
   useEffect(() => {
     fetchChats();
-  }, []);
+  }, [newMessage]);
 
+  useEffect(() => {
+    if (selectedChat) {
+      fetchMessages(selectedChat._id);
+    }
+  }, [selectedChat]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  // Fetch user chats
   const fetchChats = async () => {
     try {
       const response = await axios.get(backendUrl + "/api/chat/fetchchats", {
         headers: { token },
       });
-      console.log(response.data);
       if (response.data.success) {
         setChats(response.data.chats);
       }
     } catch (error) {
       console.error("Error fetching chats:", error);
+    }
+  };
+
+  // Fetch messages for a selected chat
+  const fetchMessages = async (chatId) => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/message/${chatId}`, {
+        headers: { token },
+      });
+      if (response.data.success) {
+        setMessages(response.data.messages);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
     }
   };
 
@@ -39,7 +70,6 @@ const Chat = ({ token }) => {
           headers: { token },
         }
       );
-      console.log(response.data);
       if (response.data.success) {
         setSearchResults(response.data.users);
       }
@@ -53,16 +83,39 @@ const Chat = ({ token }) => {
       const response = await axios.post(
         backendUrl + "/api/chat/accesschat",
         { userId },
-        {
-          headers: { token },
-        }
+        { headers: { token } }
       );
       if (response.data.success) {
         setSelectedChat(response.data.chat);
-        fetchChats(); // Refresh the chat list
+        fetchChats(); // Refresh chat list
       }
     } catch (error) {
       console.error("Error starting new chat:", error);
+    }
+  };
+
+  // Send message function
+  const sendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    try {
+      const response = await axios.post(
+        backendUrl + "/api/message/send",
+        {
+          chatId: selectedChat._id,
+          content: newMessage,
+          isAdmin: true, // Pass isAdmin flag to backend
+        },
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        setMessages([...messages, response.data.message]); // Update UI with new message
+        setNewMessage("");
+        scrollToBottom();
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
     }
   };
 
@@ -122,24 +175,61 @@ const Chat = ({ token }) => {
       </div>
 
       {/* Right Chat Section */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 flex flex-col">
         {selectedChat ? (
-          <div>
+          <div className="flex flex-col h-full">
             <h3 className="text-xl font-semibold mb-4">
               Chat with {selectedChat.userId?.name || "Unknown"}
             </h3>
-            <div className="border border-gray-300 p-4 h-[70vh] overflow-y-auto rounded">
-              {/* Render chat messages here */}
-              <p>Chat messages will be displayed here.</p>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 bg-gray-100 rounded-lg">
+              {messages.length > 0 ? (
+                messages.map((msg) => (
+                  <div
+                    key={msg._id}
+                    className={`flex ${
+                      msg.sender === (isAdmin ? "admin" : "user")
+                        ? "justify-end"
+                        : "justify-start"
+                    } mb-2`}
+                  >
+                    <span
+                      className={`px-4 py-2 rounded-lg max-w-xs ${
+                        msg.sender === (isAdmin ? "admin" : "user")
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-300 text-black"
+                      }`}
+                    >
+                      {msg.content}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center">No messages yet.</p>
+              )}
+              <div ref={messagesEndRef} />
             </div>
-            <input
-              type="text"
-              placeholder="Type a message..."
-              className="w-full p-2 border border-gray-300 rounded mt-4"
-            />
+
+            {/* Message Input */}
+            <div className="mt-4 flex">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1 p-2 border border-gray-300 rounded"
+              />
+              <button
+                onClick={sendMessage}
+                className="ml-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+              >
+                Send
+              </button>
+            </div>
           </div>
         ) : (
-          <h3 className="text-lg font-medium text-gray-500">
+          <h3 className="text-lg font-medium text-gray-500 text-center">
             Select a chat to start messaging
           </h3>
         )}

@@ -49,13 +49,11 @@ const searchUser = async (req, res) => {
 
 const fetchChats = async (req, res) => {
   try {
-    console.log("I am here");
     const chats = await chatModel
       .find()
       .populate("userId", "name email")
       .populate("latestMessage")
       .sort({ updatedAt: -1 });
-    console.log(chats);
     res.json({ success: true, chats });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
