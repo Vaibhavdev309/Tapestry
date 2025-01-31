@@ -21,7 +21,6 @@ const sendMessage = async (req, res) => {
     const sender = isAdmin ? "admin" : "user";
 
     const newMessage = await messageModel.create({ chatId, content, sender });
-    console.log(newMessage);
     chat.latestMessage = newMessage._id;
     chat.updatedAt = Date.now();
     await chat.save();

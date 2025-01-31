@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { backendUrl } from "../App";
+import io from "socket.io-client";
 
+const ENDPOINT = "http://localhost:4000";
+var socket, selectedChatCompare;
 const Chat = ({ token, isAdmin }) => {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -10,14 +13,37 @@ const Chat = ({ token, isAdmin }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const messagesEndRef = useRef(null); // For auto-scrolling
+  const [socketConnected, setSocketConnected] = useState(false);
+  const selectedChatRef = useRef(null); // To store selectedChat persistently
 
+  useEffect(() => {
+    socket = io(ENDPOINT);
+    socket.emit("setup", { _id: "admin" });
+    socket.on("connection", () => {
+      setSocketConnected(true);
+    });
+  }, []);
   useEffect(() => {
     fetchChats();
-  }, [newMessage]);
+  }, []);
+  useEffect(() => {
+    socket.on("message received", (newMessageReceived) => {
+      if (
+        selectedChatRef.current &&
+        selectedChatRef.current._id === newMessageReceived.chatId
+      ) {
+        setMessages((prev) => [...prev, newMessageReceived]);
+      }
+    });
+
+    return () => socket.off("message received");
+  }, [selectedChat]);
 
   useEffect(() => {
+    console.log("Selected chat changed:", selectedChat);
     if (selectedChat) {
       fetchMessages(selectedChat._id);
+      selectedChatRef.current = selectedChat; // Store the selected chat
     }
   }, [selectedChat]);
 
@@ -52,6 +78,7 @@ const Chat = ({ token, isAdmin }) => {
       if (response.data.success) {
         setMessages(response.data.messages);
       }
+      socket.emit("join chat", chatId);
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
@@ -114,6 +141,8 @@ const Chat = ({ token, isAdmin }) => {
         setNewMessage("");
         scrollToBottom();
       }
+      console.log(response.data);
+      socket.emit("new Message", response.data);
     } catch (error) {
       console.error("Error sending message:", error);
     }

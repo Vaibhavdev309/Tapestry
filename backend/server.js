@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
+import { Server } from "socket.io";
 import connectCloudinary from "./config/cloudinary.js";
 import userRouter from "./routes/userRoute.js";
 import productRouter from "./routes/productRouter.js";
@@ -32,6 +33,33 @@ app.get("/", (req, res) => {
   res.send("API working");
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log("Server started on port : " + port);
+});
+
+const io = new Server(server, {
+  pingTimeout: 60000,
+  cors: {
+    origin: "*",
+  },
+});
+
+io.on("connection", (socket) => {
+  console.log("Socket connected: " + socket.id);
+  socket.on("setup", (userData) => {
+    socket.join(userData._id);
+    console.log("User joined room: " + userData._id);
+    socket.emit("Connected");
+  });
+  socket.on("join chat", (room) => {
+    socket.join(room);
+    console.log("User joined chat room: " + room);
+  });
+  socket.on("new Message", (newMessageReceived) => {
+    const chatId = newMessageReceived.message.chatId; // Use chatId from the message
+    console.log("New message received in chat: " + chatId);
+
+    // Broadcast the message to all clients in the chat room
+    socket.to(chatId).emit("message received", newMessageReceived.message);
+  });
 });

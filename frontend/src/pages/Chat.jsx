@@ -2,22 +2,41 @@ import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import { ShopContext } from "../context/ShopContext";
 import { IoChatbubbleEllipsesSharp, IoClose } from "react-icons/io5";
+import io from "socket.io-client";
+
+const ENDPOINT = "http://localhost:4000";
+var socket, selectedChatCompare;
 
 const UserChat = () => {
+  const [socketConnected, setSocketConnected] = useState(false);
   const { backendUrl, token } = useContext(ShopContext);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [chatId, setChatId] = useState(null);
-  const [isOpen, setIsOpen] = useState(false); // Controls chatbox visibility
+  const [isOpen, setIsOpen] = useState(false);
+  const [userId, setUserId] = useState(null);
 
+  useEffect(() => {
+    socket = io(ENDPOINT);
+    if (userId) {
+      socket.emit("setup", { _id: userId });
+      socket.on("connection", () => {
+        setSocketConnected(true);
+      });
+    }
+  }, [userId]);
+  useEffect(() => {
+    socket.on("message received", (newMessageReceived) => {
+      if (newMessageReceived.chatId === chatId) {
+        setMessages((prev) => [...prev, newMessageReceived]);
+      }
+    });
+
+    return () => socket.off("message received");
+  }, [chatId]);
   useEffect(() => {
     if (isOpen) fetchChat();
   }, [token, isOpen]);
-
-  useEffect(() => {
-    if (chatId) fetchMessages(chatId);
-  }, [chatId]);
-
   const fetchChat = async () => {
     try {
       const response = await axios.get(`${backendUrl}/api/chat/accessChat`, {
@@ -25,13 +44,18 @@ const UserChat = () => {
       });
 
       if (response.data.success) {
+        console.log("Chat fetched: ", response.data.chat);
         setChatId(response.data.chat._id);
+        setUserId(response.data.chat.userId._id);
       }
     } catch (error) {
       console.error("Error fetching chat:", error);
     }
   };
 
+  useEffect(() => {
+    if (chatId) fetchMessages(chatId);
+  }, [chatId]);
   const fetchMessages = async (chatId) => {
     try {
       const response = await axios.get(`${backendUrl}/api/message/${chatId}`, {
@@ -41,6 +65,7 @@ const UserChat = () => {
       if (response.data.success) {
         setMessages(response.data.messages);
       }
+      socket.emit("join chat", chatId);
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
@@ -59,6 +84,7 @@ const UserChat = () => {
         setMessages((prev) => [...prev, response.data.message]);
         setNewMessage("");
       }
+      socket.emit("new Message", response.data);
     } catch (error) {
       console.error("Error sending message:", error);
     }
