@@ -1,8 +1,8 @@
 import React, { useContext, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
 import { assets } from "../assets/assets.js";
 import Title from "../components/Title";
-import ProductItem from "../components/ProductItem.jsx";
 
 const sizeOrder = ["1X1", "1X2", "1X3", "3X1", "2X1", "3X3", "6X6"];
 const typeOrder = [
@@ -21,158 +21,208 @@ const Collection = () => {
   const [filterProducts, setFilterProducts] = useState([]);
   const [category, setCategory] = useState([]);
   const [subCategory, setSubCategory] = useState([]);
-  const [sortType, setSortType] = useState("Size");
+  const [sortType, setSortType] = useState("Type");
 
   const toggleCategory = (e) => {
-    if (category.includes(e.target.value)) {
-      setCategory((prev) => prev.filter((item) => item !== e.target.value));
-    } else {
-      setCategory((prev) => [...prev, e.target.value]);
-    }
+    const value = e.target.value;
+    setCategory((prev) =>
+      prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value]
+    );
   };
 
   const toggleSubCategory = (e) => {
-    if (subCategory.includes(e.target.value)) {
-      setSubCategory((prev) => prev.filter((item) => item !== e.target.value));
-    } else {
-      setSubCategory((prev) => [...prev, e.target.value]);
-    }
+    const value = e.target.value;
+    setSubCategory((prev) =>
+      prev.includes(value)
+        ? prev.filter((item) => item !== value)
+        : [...prev, value]
+    );
   };
 
   const applyFilter = () => {
-    let filteredProducts = products.slice();
+    let filtered = products;
+
     if (showSearch && search) {
-      filteredProducts = filteredProducts.filter((item) =>
+      filtered = filtered.filter((item) =>
         item.name.toLowerCase().includes(search.toLowerCase())
       );
     }
+
     if (category.length > 0) {
-      filteredProducts = filteredProducts.filter((item) =>
-        category.includes(item.category)
-      );
+      filtered = filtered.filter((item) => category.includes(item.category));
     }
 
     if (subCategory.length > 0) {
-      filteredProducts = filteredProducts.filter((item) =>
+      filtered = filtered.filter((item) =>
         subCategory.includes(item.subCategory)
       );
     }
-    setFilterProducts(filteredProducts);
+
+    setFilterProducts(filtered);
   };
 
   useEffect(() => {
     applyFilter();
-  }, [category, subCategory, search, showSearch, products]);
+  }, [products, search, showSearch, category, subCategory]);
 
-  const groupAndSortProducts = () => {
-    let groupedProducts = {};
+  const getGroupedData = () => {
+    const rows =
+      sortType === "Type"
+        ? typeOrder.filter(
+            (type) =>
+              filterProducts.some((p) => p.category === type) &&
+              (category.length === 0 || category.includes(type))
+          )
+        : sizeOrder.filter(
+            (size) =>
+              filterProducts.some((p) => p.subCategory === size) &&
+              (subCategory.length === 0 || subCategory.includes(size))
+          );
 
-    if (sortType === "Size") {
-      sizeOrder.forEach((size) => {
-        groupedProducts[size] = filterProducts.filter(
-          (product) => product.subCategory === size
-        );
-      });
-    } else if (sortType === "Type") {
-      typeOrder.forEach((type) => {
-        groupedProducts[type] = filterProducts.filter(
-          (product) => product.category === type
-        );
-      });
-    }
+    const columns = sortType === "Type" ? sizeOrder : typeOrder;
 
-    return groupedProducts;
+    return { rows, columns };
   };
 
-  useEffect(() => {
-    setFilterProducts(products);
-  }, [products]);
-
-  const sortedProducts = groupAndSortProducts();
+  const { rows, columns } = getGroupedData();
 
   return (
-    <div className="flex flex-col sm:flex-row gap-1 sm:gap-10 pt-10 border-t">
-      <div className="min-w-60">
-        <p
-          onClick={() => {
-            setShowFilter(!showFilter);
-          }}
-          className="my-2 text-xl flex items-center cursor-pointer gap-2"
-        >
-          FILTERS
-        </p>
-        <img
-          className={`h-3 sm:hidden ${showFilter ? "rotate-90" : ""}`}
-          src={assets.dropdown_icon}
-          alt=""
-        />
-        <div
-          className={`border border-gray-300 pl-5 py-3 mt-6 ${
-            showFilter ? "" : "hidden"
-          } sm:block`}
-        >
-          <p className="mb-3 text-sm font-medium">CATEGORIES</p>
-          <div className="flex flex-col gap-2 text-sm font-light text-gray-700">
-            {typeOrder.map((type) => (
-              <p key={type} className="flex gap-2">
-                <input
-                  className="w-3"
-                  type="checkbox"
-                  value={type}
-                  onChange={toggleCategory}
-                />
-                {type}
-              </p>
-            ))}
+    <div className="flex flex-col lg:flex-row gap-4 pt-10 px-4 sm:px-6">
+      {/* Filters Sidebar */}
+      <div className={`lg:w-64 ${showFilter ? "block" : "hidden"} lg:block`}>
+        <div className="lg:sticky lg:top-20 space-y-6">
+          {/* Mobile Filter Header */}
+          <div className="flex items-center justify-between lg:hidden">
+            <h2 className="text-xl font-semibold">Filters</h2>
+            <button
+              onClick={() => setShowFilter(false)}
+              className="p-2 hover:bg-gray-100 rounded-full"
+            >
+              ✕
+            </button>
           </div>
-        </div>
-        <div
-          className={`border border-gray-300 pl-5 py-3 mt-6 ${
-            showFilter ? "" : "hidden"
-          } sm:block`}
-        >
-          <p className="mb-3 text-sm font-medium">Size</p>
-          <div className="flex flex-col gap-2 text-sm font-light text-gray-700">
-            {sizeOrder.map((size) => (
-              <p key={size} className="flex gap-2">
-                <input
-                  className="w-3"
-                  type="checkbox"
-                  value={size}
-                  onChange={toggleSubCategory}
-                />
-                {size}
-              </p>
-            ))}
+
+          {/* Category Filter */}
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <h3 className="text-sm font-medium mb-3">Categories</h3>
+            <div className="space-y-2">
+              {typeOrder.map((type) => (
+                <label
+                  key={type}
+                  className="flex items-center space-x-2 text-sm text-gray-700"
+                >
+                  <input
+                    type="checkbox"
+                    value={type}
+                    checked={category.includes(type)}
+                    onChange={toggleCategory}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>{type}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Size Filter */}
+          <div className="border rounded-lg p-4 bg-white shadow-sm">
+            <h3 className="text-sm font-medium mb-3">Sizes</h3>
+            <div className="space-y-2">
+              {sizeOrder.map((size) => (
+                <label
+                  key={size}
+                  className="flex items-center space-x-2 text-sm text-gray-700"
+                >
+                  <input
+                    type="checkbox"
+                    value={size}
+                    checked={subCategory.includes(size)}
+                    onChange={toggleSubCategory}
+                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span>{size}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Main Content */}
       <div className="flex-1">
-        <div className="flex justify-between text-base sm:text-2xl mb-4">
-          <Title text1={"All"} text2={"Collections"} />
-          <select
-            onChange={(e) => {
-              setSortType(e.target.value);
-            }}
-            className="border-2 border-gray-300 text-sm px-2"
-          >
-            <option value="Size">Sort By: Size</option>
-            <option value="Type">Sort By: Type</option>
-          </select>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+          <Title text1="All" text2="Collections" />
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <button
+              onClick={() => setShowFilter(true)}
+              className="lg:hidden px-4 py-2 border rounded-lg bg-white shadow-sm flex items-center gap-2"
+            >
+              <img src={assets.filter_icon} className="w-4 h-4" alt="filter" />
+              Filters
+            </button>
+            <select
+              value={sortType}
+              onChange={(e) => setSortType(e.target.value)}
+              className="px-4 py-2 border rounded-lg bg-white shadow-sm w-full sm:w-48"
+            >
+              <option value="Type">Sort by Type</option>
+              <option value="Size">Sort by Size</option>
+            </select>
+          </div>
         </div>
-        <div>
-          {Object.keys(sortedProducts).map((key) => (
-            <div key={key}>
-              <h3 className="text-lg font-bold mb-2">{key}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {sortedProducts[key].map((product) => (
-                  <ProductItem
-                    key={product._id}
-                    name={product.name}
-                    id={product._id}
-                    image={product.image}
-                  />
-                ))}
+
+        {/* Products Grid */}
+        <div className="space-y-8">
+          {getGroupedData().rows.map((row) => (
+            <div key={row} className="bg-white p-4 rounded-lg shadow-sm">
+              <h3 className="text-lg font-semibold mb-4">{row}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {getGroupedData()
+                  .columns.filter((col) =>
+                    filterProducts.some((p) =>
+                      sortType === "Type"
+                        ? p.category === row && p.subCategory === col
+                        : p.subCategory === row && p.category === col
+                    )
+                  )
+                  .map((col) => {
+                    const productsInCell = filterProducts.filter((p) =>
+                      sortType === "Type"
+                        ? p.category === row && p.subCategory === col
+                        : p.subCategory === row && p.category === col
+                    );
+                    const firstProduct = productsInCell[0];
+
+                    return (
+                      <Link
+                        key={`${row}-${col}`}
+                        to={`/collection/${sortType === "Type" ? row : col}/${
+                          sortType === "Type" ? col : row
+                        }`}
+                        className="group block overflow-hidden rounded-lg transition-transform hover:scale-[1.02]"
+                      >
+                        <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                          {firstProduct && (
+                            <img
+                              src={firstProduct.image[0]}
+                              alt={firstProduct.name}
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="p-2">
+                          <p className="text-sm font-medium truncate">
+                            {firstProduct?.name || "Product Name"}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {productsInCell.length} variants
+                          </p>
+                        </div>
+                      </Link>
+                    );
+                  })}
               </div>
             </div>
           ))}

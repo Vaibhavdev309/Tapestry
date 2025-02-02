@@ -14,6 +14,7 @@ import Footer from "./components/Footer";
 import SearchBar from "./components/SearchBar";
 import { ToastContainer, toast } from "react-toastify";
 import Chat from "./pages/Chat";
+import CategoryProducts from "./components/CategoryProducts";
 
 const App = () => {
   return (
@@ -32,6 +33,14 @@ const App = () => {
         <Route path="/cart" element={<Cart />} />
         <Route path="/place-order" element={<PlaceOrder />} />
         <Route path="/collection/:productId" element={<Product />} />
+        <Route
+          path="/collection/:category/:subCategory"
+          element={<CategoryProducts />}
+        />
+        <Route
+          path="/collection/:category/:subCategory/:productId?"
+          element={<CategoryProducts />}
+        />
       </Routes>
       <Footer />
     </div>
