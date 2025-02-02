@@ -15,6 +15,8 @@ const Chat = ({ token, isAdmin }) => {
   const messagesEndRef = useRef(null); // For auto-scrolling
   const [socketConnected, setSocketConnected] = useState(false);
   const selectedChatRef = useRef(null); // To store selectedChat persistently
+  const [isTyping, setIsTyping] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState(null);
 
   useEffect(() => {
     socket = io(ENDPOINT);
@@ -46,6 +48,17 @@ const Chat = ({ token, isAdmin }) => {
       selectedChatRef.current = selectedChat; // Store the selected chat
     }
   }, [selectedChat]);
+  useEffect(() => {
+    socket.on("typing", () => {
+      setIsTyping(true);
+    });
+    socket.on("stop typing", () => setIsTyping(false));
+
+    return () => {
+      socket.off("typing");
+      socket.off("stop typing");
+    };
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -147,6 +160,24 @@ const Chat = ({ token, isAdmin }) => {
       console.error("Error sending message:", error);
     }
   };
+  const typingHandler = (e) => {
+    setNewMessage(e.target.value);
+
+    if (!socket) return;
+
+    if (!typingTimeout) {
+      socket.emit("typing", selectedChat._id);
+    }
+
+    if (typingTimeout) clearTimeout(typingTimeout);
+
+    setTypingTimeout(
+      setTimeout(() => {
+        socket.emit("stop typing", selectedChat._id);
+        setTypingTimeout(null);
+      }, 2000)
+    );
+  };
 
   return (
     <div className="flex h-screen">
@@ -241,12 +272,15 @@ const Chat = ({ token, isAdmin }) => {
             </div>
 
             {/* Message Input */}
+            {isTyping && (
+              <span className="text-xs opacity-75">Admin is typing...</span>
+            )}
             <div className="mt-4 flex">
               <input
                 type="text"
                 placeholder="Type a message..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={typingHandler}
                 className="flex-1 p-2 border border-gray-300 rounded"
               />
               <button

@@ -49,7 +49,7 @@ io.on("connection", (socket) => {
   socket.on("setup", (userData) => {
     socket.join(userData._id);
     console.log("User joined room: " + userData._id);
-    socket.emit("Connected");
+    socket.emit("connection");
   });
   socket.on("join chat", (room) => {
     socket.join(room);
@@ -57,9 +57,15 @@ io.on("connection", (socket) => {
   });
   socket.on("new Message", (newMessageReceived) => {
     const chatId = newMessageReceived.message.chatId; // Use chatId from the message
-    console.log("New message received in chat: " + chatId);
 
     // Broadcast the message to all clients in the chat room
     socket.to(chatId).emit("message received", newMessageReceived.message);
+  });
+  socket.on("typing", (chatId) => {
+    socket.to(chatId).emit("typing"); // Remove chatId from the payload
+  });
+
+  socket.on("stop typing", (chatId) => {
+    socket.to(chatId).emit("stop typing"); // Remove chatId from the payload
   });
 });
