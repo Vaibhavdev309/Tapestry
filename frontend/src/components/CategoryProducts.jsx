@@ -10,25 +10,34 @@ const CategoryProducts = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [mainImage, setMainImage] = useState("");
+  const [isMobile, setIsMobile] = useState(false);
 
-  // States for magnifier effect
+  // Magnifier states
   const [showMagnifier, setShowMagnifier] = useState(false);
   const [magnifierPosition, setMagnifierPosition] = useState({ x: 0, y: 0 });
   const imageRef = useRef(null);
 
-  // Filter products based on category and subCategory.
+  // Check for mobile view
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Filter products
   const filteredProducts = products.filter(
     (product) =>
       product.category === category && product.subCategory === subCategory
   );
 
-  // Set the selected product based on the URL or default to the first product.
+  // Set selected product
   useEffect(() => {
     if (productId) {
       const product = filteredProducts.find((p) => p._id === productId);
       if (product) {
         setSelectedProduct(product);
-        setMainImage(product.image[0]); // Set default main image.
+        setMainImage(product.image[0]);
       } else {
         navigateToBase();
       }
@@ -39,19 +48,18 @@ const CategoryProducts = () => {
     }
   }, [productId, filteredProducts, category, subCategory]);
 
-  // If productId is invalid, navigate back to the base route.
   const navigateToBase = () => {
     navigate(`/collection/${category}/${subCategory}`);
   };
 
-  // When switching variant, update URL and reset selected size.
   const handleVariantSelect = (productId) => {
     navigate(`/collection/${category}/${subCategory}/${productId}`);
     setSelectedSize("");
   };
 
-  // Handler for mouse movement over the image container (for magnifier effect)
+  // Mouse move handler with mobile check
   const handleMouseMove = (e) => {
+    if (isMobile) return;
     const { top, left } = imageRef.current.getBoundingClientRect();
     const x = e.pageX - left - window.pageXOffset;
     const y = e.pageY - top - window.pageYOffset;
@@ -68,7 +76,6 @@ const CategoryProducts = () => {
 
   return (
     <div className="container mx-auto px-4 py-10">
-      {/* Page Title */}
       <h1 className="text-3xl font-bold mb-8 text-center md:text-left">
         {category}{" "}
         <span className="text-lg font-normal text-gray-600">
@@ -76,30 +83,30 @@ const CategoryProducts = () => {
         </span>
       </h1>
 
-      {/* Mobile Variants (Horizontal Scroll) */}
-      <div className="block md:hidden mb-6">
+      {/* Mobile Variants */}
+      <div className="block lg:hidden mb-6">
         <h2 className="text-xl font-semibold mb-4 border-b pb-2">Variants</h2>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {filteredProducts.map((product) => (
             <div
               key={product._id}
               onClick={() => handleVariantSelect(product._id)}
-              className={`cursor-pointer p-4 border rounded-lg transition-all hover:shadow-md flex-shrink-0 ${
+              className={`cursor-pointer p-2 border rounded-lg transition-all hover:shadow-md flex-shrink-0 ${
                 selectedProduct._id === product._id
                   ? "border-orange-500 bg-orange-50"
                   : "border-gray-200 hover:border-gray-300"
               }`}
-              style={{ width: "150px" }}
+              style={{ width: "120px" }}
             >
-              <ProductItem {...product} />
+              <ProductItem {...product} compact />
             </div>
           ))}
         </div>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Desktop Variants Sidebar */}
-        <aside className="hidden md:block md:w-1/4 flex-shrink-0">
+        {/* Desktop Variants */}
+        <aside className="hidden lg:block md:w-1/4 flex-shrink-0">
           <h2 className="text-xl font-semibold mb-4 border-b pb-2">Variants</h2>
           <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
             {filteredProducts.map((product) => (
@@ -118,38 +125,36 @@ const CategoryProducts = () => {
           </div>
         </aside>
 
-        {/* Selected Product Details */}
+        {/* Product Details */}
         <section className="flex-1">
           <div className="flex flex-col md:flex-row gap-8">
-            {/* Product Images */}
+            {/* Images Section */}
             <div className="md:w-1/2 flex-shrink-0">
               <div
-                className="sticky top-4"
-                style={{ width: "100%", maxWidth: "500px", height: "500px" }}
+                className="md:sticky md:top-4"
+                style={{ width: "100%", height: isMobile ? "300px" : "500px" }}
               >
-                {/* Main Image Container with Magnifier */}
                 <div
                   className="relative w-full h-full"
-                  onMouseEnter={() => setShowMagnifier(true)}
-                  onMouseLeave={() => setShowMagnifier(false)}
+                  onMouseEnter={() => !isMobile && setShowMagnifier(true)}
+                  onMouseLeave={() => !isMobile && setShowMagnifier(false)}
                   onMouseMove={handleMouseMove}
                   ref={imageRef}
                 >
                   <img
                     src={mainImage}
                     alt={selectedProduct.name}
-                    className="w-full h-full object-cover rounded-lg shadow-lg transition-all hover:scale-105"
+                    className="w-full h-full object-cover rounded-lg shadow-lg transition-all md:hover:scale-105"
                   />
-                  {showMagnifier && imageRef.current && (
+                  {!isMobile && showMagnifier && imageRef.current && (
                     <div
-                      className="absolute border border-gray-300 rounded-lg bg-white"
+                      className="absolute border border-gray-300 rounded-lg bg-white hidden md:block"
                       style={{
                         top: 0,
                         left: "105%",
-                        width: "300px",
-                        height: "300px",
+                        width: "400px",
+                        height: "500px",
                         backgroundImage: `url(${mainImage})`,
-                        backgroundRepeat: "no-repeat",
                         backgroundSize: `${
                           imageRef.current.offsetWidth * 2
                         }px ${imageRef.current.offsetHeight * 2}px`,
@@ -163,14 +168,14 @@ const CategoryProducts = () => {
                     />
                   )}
                 </div>
-                {/* Thumbnail Images */}
-                <div className="flex gap-2 overflow-x-auto mt-4">
+                {/* Thumbnails */}
+                <div className="flex gap-2 overflow-x-auto mt-4 pb-2">
                   {selectedProduct.image.map((img, index) => (
                     <img
                       key={index}
                       src={img}
                       alt={`${selectedProduct.name} ${index + 1}`}
-                      className={`w-20 h-20 object-cover cursor-pointer border rounded-lg transition-all ${
+                      className={`w-16 h-16 md:w-20 md:h-20 object-cover cursor-pointer border rounded-lg transition-all ${
                         mainImage === img
                           ? "border-orange-500 scale-105"
                           : "border-gray-300 hover:border-orange-400"
@@ -182,8 +187,8 @@ const CategoryProducts = () => {
               </div>
             </div>
 
-            {/* Product Details */}
-            <div className="md:w-1/2 flex flex-col justify-between">
+            {/* Product Info */}
+            <div className="md:w-1/2 mt-14 md:mt-0 flex flex-col justify-between">
               <div className="h-full">
                 <h2 className="text-2xl font-bold mb-4">
                   {selectedProduct.name}
@@ -200,7 +205,7 @@ const CategoryProducts = () => {
                       <button
                         key={index}
                         onClick={() => setSelectedSize(size)}
-                        className={`px-5 py-2 border rounded-lg transition-colors ${
+                        className={`px-4 py-2 md:px-5 md:py-2 border rounded-lg transition-colors ${
                           selectedSize === size
                             ? "border-orange-500 bg-orange-50"
                             : "border-gray-300 hover:border-orange-400"
@@ -213,7 +218,7 @@ const CategoryProducts = () => {
                 </div>
               </div>
 
-              {/* Add to Cart & Product Info */}
+              {/* Add to Cart */}
               <div className="flex flex-col space-y-6">
                 <button
                   onClick={() => {
@@ -221,7 +226,7 @@ const CategoryProducts = () => {
                       addToCart(selectedProduct._id, selectedSize);
                     }
                   }}
-                  className={`w-full py-3 rounded-lg transition-colors ${
+                  className={`w-full py-3 rounded-lg transition-colors text-sm md:text-base ${
                     selectedSize
                       ? "bg-black text-white hover:bg-gray-800"
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
@@ -240,11 +245,11 @@ const CategoryProducts = () => {
         </section>
       </div>
 
-      {/* Back Link */}
+      {/* Back Button */}
       <div className="mt-10 text-center">
         <button
           onClick={() => navigate(-1)}
-          className="inline-block text-orange-500 hover:text-orange-600 transition-colors"
+          className="inline-block text-orange-500 hover:text-orange-600 transition-colors text-sm md:text-base"
         >
           &larr; Back to {subCategory} Collection
         </button>
