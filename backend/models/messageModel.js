@@ -9,6 +9,7 @@ const messageSchema = new mongoose.Schema(
     }, // Reference to the chat
     sender: { type: String, enum: ["user", "admin"], required: true }, // Indicates whether the sender is a user or admin
     content: { type: String, required: true }, // Message content
+    read: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

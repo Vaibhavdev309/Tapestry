@@ -15,7 +15,30 @@ const ShopContextProvider = (props) => {
   const navigate = useNavigate();
   const [products, setProducts] = useState([]);
   const [token, setToken] = useState("");
+  const createPriceRequest = async (items) => {
+    try {
+      const response = await axios.post(
+        backendUrl + "/api/price-request/create",
+        { items },
+        { headers: { token } }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
 
+  const getCurrentPriceRequest = async () => {
+    try {
+      const response = await axios.get(
+        backendUrl + "/api/price-request/current",
+        { headers: { token } }
+      );
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  };
   const addToCart = async (itemId, size) => {
     if (!size) {
       toast.error("Select Product Size");
@@ -146,6 +169,8 @@ const ShopContextProvider = (props) => {
   }, []);
 
   const value = {
+    createPriceRequest,
+    getCurrentPriceRequest,
     products,
     currency,
     delievery_fee,

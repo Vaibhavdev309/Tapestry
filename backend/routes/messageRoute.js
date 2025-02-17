@@ -1,5 +1,9 @@
 import express from "express";
-import { allMessages, sendMessage } from "../controllers/messageController.js";
+import {
+  allMessages,
+  readMessage,
+  sendMessage,
+} from "../controllers/messageController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import authUser from "../middleware/authUser.js";
 
@@ -17,5 +21,6 @@ const verifySender = (req, res, next) => {
 
 messageRouter.post("/send", verifySender, sendMessage);
 messageRouter.get("/:chatId", allMessages);
+messageRouter.put("/read", verifySender, readMessage);
 
 export default messageRouter;

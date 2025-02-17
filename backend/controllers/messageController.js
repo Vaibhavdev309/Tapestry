@@ -40,4 +40,24 @@ const allMessages = async (req, res) => {
   }
 };
 
-export { sendMessage, allMessages };
+const readMessage = async (req, res) => {
+  try {
+    const { chatId } = req.body;
+    const isAdmin = req.user.isAdmin;
+
+    await Message.updateMany(
+      {
+        chatId,
+        sender: isAdmin ? "user" : "admin",
+        read: false,
+      },
+      { read: true }
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+export { sendMessage, allMessages, readMessage };

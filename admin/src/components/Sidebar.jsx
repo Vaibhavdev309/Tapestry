@@ -56,6 +56,17 @@ const Sidebar = ({ closeSidebar, isMobile }) => {
           <img className="w-5 h-5" src={assets.order_icon} alt="Chats" />
           <span className="text-sm lg:text-base">Chats</span>
         </NavLink>
+        <NavLink
+          to="/request"
+          onClick={isMobile ? closeSidebar : null}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border-l-4
+            ${isActive ? activeStyle : normalStyle}`
+          }
+        >
+          <img className="w-5 h-5" src={assets.order_icon} alt="Chats" />
+          <span className="text-sm lg:text-base">Request</span>
+        </NavLink>
       </div>
     </div>
   );

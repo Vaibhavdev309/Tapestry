@@ -8,6 +8,7 @@ import Orders from "./pages/orders";
 import Login from "./components/Login";
 import { ToastContainer } from "react-toastify";
 import Chat from "./pages/Chat";
+import Request from "./pages/Request";
 
 export const backendUrl = import.meta.env.VITE_BACKEND_URL;
 export const currency = "$";
@@ -72,6 +73,7 @@ const App = () => {
                     path="/chats"
                     element={<Chat token={token} isAdmin={true} />}
                   />
+                  <Route path="/request" element={<Request token={token} />} />
                 </Routes>
               </div>
             </main>

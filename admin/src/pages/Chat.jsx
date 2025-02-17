@@ -17,6 +17,7 @@ const Chat = ({ token, isAdmin }) => {
   const selectedChatRef = useRef(null); // To store selectedChat persistently
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [notification, setNotification] = useState([]);
 
   useEffect(() => {
     socket = io(ENDPOINT);

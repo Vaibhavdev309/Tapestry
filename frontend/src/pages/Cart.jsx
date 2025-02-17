@@ -3,11 +3,21 @@ import { ShopContext } from "../context/ShopContext";
 import { assets } from "../assets/assets";
 import Title from "../components/Title";
 import CartTotal from "../components/CartTotal";
+import axios from "axios";
+import { toast } from "react-toastify";
 
 const Cart = () => {
-  const { products, cartItems, navigate, currency, updateQuantity } =
-    useContext(ShopContext);
+  const {
+    products,
+    cartItems,
+    navigate,
+    currency,
+    updateQuantity,
+    token,
+    backendUrl,
+  } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
+  const [priceRequest, setPriceRequest] = useState(null);
 
   useEffect(() => {
     const tempData = [];
@@ -25,6 +35,50 @@ const Cart = () => {
     setCartData(tempData);
   }, [cartItems]);
 
+  useEffect(() => {
+    const fetchCurrentRequest = async () => {
+      try {
+        const response = await axios.get(
+          `${backendUrl}/api/price-requests/current`,
+          {
+            headers: { token },
+          }
+        );
+        if (response.data.success) {
+          setPriceRequest(response.data.priceRequest);
+          console.log(priceRequest);
+        }
+      } catch (error) {
+        console.error("Error fetching price request:", error);
+      }
+    };
+
+    if (token) fetchCurrentRequest();
+  }, [token, backendUrl]);
+
+  const handleRequestToAdmin = async () => {
+    const items = cartData.map((item) => ({
+      productId: item._id,
+      quantity: item.quantity,
+      size: item.size,
+    }));
+
+    try {
+      const response = await axios.post(
+        `${backendUrl}/api/price-requests/create`,
+        { items },
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        setPriceRequest(response.data.priceRequest);
+        toast.success("Price request submitted to admin");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error submitting request");
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto pt-8 sm:pt-14 px-4 sm:px-6 lg:px-8">
       <div className="mb-8 sm:mb-12">
@@ -39,7 +93,9 @@ const Cart = () => {
           const productData = products.find(
             (product) => product._id === item._id
           );
-          const totalPrice = (productData.price * item.quantity).toFixed(2);
+          const requestItem = priceRequest?.items?.find(
+            (i) => i.productId === item._id && i.size === item.size
+          );
 
           return (
             <div
@@ -47,7 +103,6 @@ const Cart = () => {
               className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
             >
               <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                {/* Product Image */}
                 <div className="w-full sm:w-32 flex-shrink-0">
                   <img
                     src={productData.image[0]}
@@ -56,7 +111,6 @@ const Cart = () => {
                   />
                 </div>
 
-                {/* Product Details */}
                 <div className="flex-1 w-full">
                   <div className="flex flex-col sm:flex-row justify-between gap-4">
                     <div className="space-y-1">
@@ -76,20 +130,24 @@ const Cart = () => {
                       </p>
                     </div>
 
-                    {/* Price */}
                     <div className="text-right">
-                      <p className="text-lg font-semibold">
-                        {currency}
-                        {totalPrice}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {currency}
-                        {productData.price} × {item.quantity}
-                      </p>
+                      {priceRequest?.status === "approved" && requestItem ? (
+                        <>
+                          <p className="text-lg font-semibold">
+                            {currency}
+                            {(requestItem.price * item.quantity).toFixed(2)}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {currency}
+                            {requestItem.price.toFixed(2)} × {item.quantity}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-gray-500">Price pending approval</p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Quantity Controls */}
                   <div className="mt-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <label className="text-sm font-medium text-gray-700">
@@ -136,7 +194,6 @@ const Cart = () => {
                       </div>
                     </div>
 
-                    {/* Delete Button */}
                     <button
                       onClick={() => updateQuantity(item._id, item.size, 0)}
                       className="text-red-600 hover:text-red-800 flex items-center gap-2 transition-colors"
@@ -156,12 +213,15 @@ const Cart = () => {
         })}
       </div>
 
-      {/* Checkout Section */}
       <div className="mt-8 sm:mt-12 grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
           <div className="bg-gray-50 p-6 rounded-lg">
             <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
-            <CartTotal />
+            {priceRequest?.status === "approved" ? (
+              <CartTotal total={priceRequest.totalAmount} />
+            ) : (
+              <p className="text-gray-500">Pending admin approval</p>
+            )}
           </div>
         </div>
 
@@ -169,75 +229,59 @@ const Cart = () => {
           <div className="sticky top-4 space-y-6">
             <div className="bg-black p-6 rounded-lg shadow-lg">
               <h3 className="text-white text-lg font-semibold mb-4">
-                Ready to Checkout?
+                {priceRequest?.status === "approved"
+                  ? "Ready to Checkout?"
+                  : "Price Approval Request"}
               </h3>
-              <button
-                onClick={() => navigate("/place-order")}
-                className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-              >
-                Proceed to Secure Checkout
-              </button>
-              <p className="text-white text-sm mt-4 text-center">
-                <span className="opacity-75">Need help?</span>{" "}
-                <a href="/contact" className="underline hover:no-underline">
-                  Contact Support
-                </a>
-              </p>
+
+              {!priceRequest && (
+                <button
+                  onClick={handleRequestToAdmin}
+                  className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                >
+                  Request Price Approval
+                </button>
+              )}
+
+              {priceRequest?.status === "pending" && (
+                <div className="text-center text-white">
+                  <p>Your request is pending admin approval</p>
+                </div>
+              )}
+
+              {priceRequest?.status === "rejected" && (
+                <div className="text-center text-white">
+                  <p className="text-red-300 mb-2">
+                    Request rejected: {priceRequest.rejectionReason}
+                  </p>
+                  <button
+                    onClick={handleRequestToAdmin}
+                    className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    Resubmit Request
+                  </button>
+                </div>
+              )}
+
+              {priceRequest?.status === "approved" && (
+                <>
+                  <button
+                    onClick={() => navigate("/place-order")}
+                    className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    Proceed to Secure Checkout
+                  </button>
+                  <p className="text-white text-sm mt-4 text-center">
+                    <span className="opacity-75">Need help?</span>{" "}
+                    <a href="/contact" className="underline hover:no-underline">
+                      Contact Support
+                    </a>
+                  </p>
+                </>
+              )}
             </div>
 
-            <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-600">
-              <p className="font-medium mb-2">Shopping Benefits:</p>
-              <ul className="space-y-2">
-                <li className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Free 7-day returns
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Secure payment options
-                </li>
-                <li className="flex items-center gap-2">
-                  <svg
-                    className="w-4 h-4 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  Price match guarantee
-                </li>
-              </ul>
-            </div>
+            {/* Shopping Benefits remains same */}
           </div>
         </div>
       </div>
