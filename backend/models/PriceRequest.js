@@ -9,7 +9,7 @@ const priceRequestSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
+      enum: ["pending", "approved", "rejected", "completed"], // Add completed status
       default: "pending",
     },
     items: [
@@ -19,16 +19,12 @@ const priceRequestSchema = new mongoose.Schema(
           ref: "Product",
           required: true,
         },
-        quantity: {
-          type: Number,
-          required: true,
-        },
-        price: {
-          type: Number,
-          default: null,
-        },
+        quantity: Number,
+        size: String, // Add size field
+        price: Number,
       },
     ],
+
     totalAmount: {
       type: Number,
       default: 0,

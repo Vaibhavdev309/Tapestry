@@ -1,5 +1,6 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+import PriceRequest from "../models/PriceRequest.js";
 
 const placeOrder = async (req, res) => {
   try {
@@ -16,7 +17,16 @@ const placeOrder = async (req, res) => {
     const newOrder = new orderModel(orderData);
     await newOrder.save();
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
-    res.json({ success: true, message: "Order placed" });
+    await PriceRequest.findByIdAndUpdate(
+      req.body.priceRequest,
+      { status: "completed" },
+      { new: true }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Order placed successfully",
+    });
   } catch (error) {
     res.json({ success: false, message: error.message });
   }
@@ -34,11 +44,25 @@ const allOrders = async (req, res) => {
 
 const userOrders = async (req, res) => {
   try {
-    const { userId } = req.body;
-    const orders = await orderModel.find({ userId });
-    res.json({ success: true, orders });
+    console.log("i ma er");
+    console.log(req.body.userId);
+    const orders = await orderModel
+      .find({ userId: req.body.userId })
+      .populate({
+        path: "items.productId",
+        select: "name image",
+      })
+      .sort({ createdAt: -1 });
+    console.log(orders);
+    res.status(200).json({
+      success: true,
+      orders,
+    });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 

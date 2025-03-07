@@ -13,6 +13,7 @@ const Request = ({ token }) => {
 
   const fetchPriceRequests = async () => {
     try {
+      console.log("i am heddre");
       const response = await axios.get(
         `${backendUrl}/api/price-requests/admin`,
         {
@@ -24,6 +25,7 @@ const Request = ({ token }) => {
         setPriceRequests(response.data.priceRequests);
       }
     } catch (error) {
+      console.log(error.message);
       console.error("Error fetching price requests:", error);
     }
   };

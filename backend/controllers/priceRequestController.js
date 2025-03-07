@@ -5,29 +5,15 @@ export const createPriceRequest = async (req, res) => {
   console.log("i am in createPriceRequest");
   try {
     const { items } = req.body;
-    console.log(req.body);
-
-    // Check if there's already a pending request
-    const existingRequest = await PriceRequest.findOne({
-      userId: req.body.userId,
-      status: "pending",
-    });
-
-    if (existingRequest) {
-      return res.status(400).json({
-        success: false,
-        message: "You already have a pending price request",
-      });
-    }
 
     const priceRequest = new PriceRequest({
       userId: req.body.userId,
       items: items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
+        size: item.size, // Add size to the schema
       })),
     });
-    console.log(priceRequest);
 
     await priceRequest.save();
 
@@ -54,11 +40,11 @@ export const getCurrentRequest = async (req, res) => {
   try {
     const priceRequest = await PriceRequest.findOne({
       userId: req.body.userId,
+      status: { $in: ["pending", "approved", "rejected"] },
     })
       .sort({ createdAt: -1 })
       .populate("items.productId")
       .populate("userId", "name email");
-
     if (!priceRequest) {
       return res.status(404).json({
         success: false,
@@ -74,6 +60,54 @@ export const getCurrentRequest = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error fetching price request",
+      error: error.message,
+    });
+  }
+};
+
+export const getRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const priceRequest = await PriceRequest.findById(id)
+      .populate("items.productId")
+      .populate("userId", "name email");
+
+    if (!priceRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Price request not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      priceRequest,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching price request",
+      error: error.message,
+    });
+  }
+};
+
+export const getUserRequests = async (req, res) => {
+  try {
+    const requests = await PriceRequest.find({
+      userId: req.body.userId,
+      status: { $ne: "completed" }, // Exclude completed requests
+    })
+      .sort({ createdAt: -1 })
+      .populate("items.productId")
+      .populate("userId", "name email");
+
+    res.json({ success: true, priceRequests: requests });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Error fetching price requests",
       error: error.message,
     });
   }

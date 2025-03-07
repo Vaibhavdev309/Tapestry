@@ -17,7 +17,8 @@ const Cart = () => {
     backendUrl,
   } = useContext(ShopContext);
   const [cartData, setCartData] = useState([]);
-  const [priceRequest, setPriceRequest] = useState(null);
+  const [priceRequests, setPriceRequests] = useState([]);
+  const [activeRequest, setActiveRequest] = useState(null);
 
   useEffect(() => {
     const tempData = [];
@@ -36,24 +37,27 @@ const Cart = () => {
   }, [cartItems]);
 
   useEffect(() => {
-    const fetchCurrentRequest = async () => {
+    const fetchUserRequests = async () => {
       try {
         const response = await axios.get(
-          `${backendUrl}/api/price-requests/current`,
+          `${backendUrl}/api/price-requests/user`,
           {
             headers: { token },
           }
         );
         if (response.data.success) {
-          setPriceRequest(response.data.priceRequest);
-          console.log(priceRequest);
+          // Filter out completed requests
+          const filteredRequests = response.data.priceRequests.filter(
+            (req) => req.status !== "completed"
+          );
+          setPriceRequests(filteredRequests);
         }
       } catch (error) {
-        console.error("Error fetching price request:", error);
+        console.error("Error fetching price requests:", error);
       }
     };
 
-    if (token) fetchCurrentRequest();
+    if (token) fetchUserRequests();
   }, [token, backendUrl]);
 
   const handleRequestToAdmin = async () => {
@@ -71,7 +75,7 @@ const Cart = () => {
       );
 
       if (response.data.success) {
-        setPriceRequest(response.data.priceRequest);
+        setPriceRequests([response.data.priceRequest, ...priceRequests]);
         toast.success("Price request submitted to admin");
       }
     } catch (error) {
@@ -88,203 +92,219 @@ const Cart = () => {
         </p>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border divide-y divide-gray-100">
-        {cartData.map((item) => {
-          const productData = products.find(
-            (product) => product._id === item._id
-          );
-          const requestItem = priceRequest?.items?.find(
-            (i) => i.productId === item._id && i.size === item.size
-          );
-
-          return (
+      {/* Price Requests List */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Your Price Requests</h2>
+        <div className="space-y-4">
+          {priceRequests.map((request) => (
             <div
-              key={`${item._id}-${item.size}`}
-              className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
+              key={request._id}
+              className="bg-white rounded-lg p-4 shadow-sm border"
             >
-              <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
-                <div className="w-full sm:w-32 flex-shrink-0">
-                  <img
-                    src={productData.image[0]}
-                    alt={productData.name}
-                    className="w-full h-32 object-cover rounded-lg shadow-sm"
-                  />
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="font-medium">
+                    Request #{request._id.slice(-6)} -{" "}
+                    {new Date(request.createdAt).toLocaleDateString()}
+                  </p>
+                  <p
+                    className={`text-sm ${
+                      request.status === "approved"
+                        ? "text-green-600"
+                        : request.status === "rejected"
+                        ? "text-red-600"
+                        : "text-yellow-600"
+                    }`}
+                  >
+                    Status: {request.status}
+                  </p>
                 </div>
+                <button
+                  onClick={() =>
+                    setActiveRequest(
+                      activeRequest === request._id ? null : request._id
+                    )
+                  }
+                  className="text-black hover:text-gray-600"
+                >
+                  {activeRequest === request._id ? "▼" : "▶"}
+                </button>
+              </div>
 
-                <div className="flex-1 w-full">
-                  <div className="flex flex-col sm:flex-row justify-between gap-4">
-                    <div className="space-y-1">
-                      <h3 className="text-lg font-semibold text-gray-900">
-                        {productData.name}
-                      </h3>
-                      <div className="flex items-center gap-3 text-sm text-gray-500">
-                        <span className="px-2.5 py-1 bg-gray-100 rounded-full">
-                          Size: {item.size}
-                        </span>
-                        <span className="px-2.5 py-1 bg-gray-100 rounded-full">
-                          Color: {productData.color || "Black"}
-                        </span>
+              {activeRequest === request._id && (
+                <div className="mt-4">
+                  {request.items.map((item) => (
+                    <div
+                      key={`${item.productId._id}-${item.size}`}
+                      className="flex justify-between py-2 border-t"
+                    >
+                      <div>
+                        <p>{item.productId.name}</p>
+                        <p className="text-sm text-gray-500">
+                          Size: {item.size} | Qty: {item.quantity}
+                        </p>
                       </div>
-                      <p className="text-sm text-gray-500">
-                        Material: {productData.material || "Pure Silk"}
-                      </p>
+                      <div>
+                        {request.status === "approved" ? (
+                          <p>
+                            {currency}
+                            {(item.price * item.quantity).toFixed(2)}
+                          </p>
+                        ) : request.status === "rejected" ? (
+                          <p className="text-red-500">
+                            {request.rejectionReason}
+                          </p>
+                        ) : (
+                          <p>Pending approval</p>
+                        )}
+                      </div>
                     </div>
+                  ))}
+                  {request.status === "approved" && (
+                    <div className="mt-4 flex justify-between items-center">
+                      <CartTotal total={request.totalAmount} />
+                      <button
+                        onClick={() => navigate(`/place-order/${request._id}`)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                      >
+                        Proceed to Checkout
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
 
-                    <div className="text-right">
-                      {priceRequest?.status === "approved" && requestItem ? (
-                        <>
-                          <p className="text-lg font-semibold">
-                            {currency}
-                            {(requestItem.price * item.quantity).toFixed(2)}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {currency}
-                            {requestItem.price.toFixed(2)} × {item.quantity}
-                          </p>
-                        </>
-                      ) : (
-                        <p className="text-gray-500">Price pending approval</p>
-                      )}
-                    </div>
+      {/* Current Cart Items */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold mb-4">Current Cart Items</h2>
+        <div className="bg-white rounded-xl shadow-sm border divide-y divide-gray-100">
+          {cartData.map((item) => {
+            const productData = products.find(
+              (product) => product._id === item._id
+            );
+
+            return (
+              <div
+                key={`${item._id}-${item.size}`}
+                className="p-4 sm:p-6 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6">
+                  <div className="w-full sm:w-32 flex-shrink-0">
+                    <img
+                      src={productData.image[0]}
+                      alt={productData.name}
+                      className="w-full h-32 object-cover rounded-lg shadow-sm"
+                    />
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <label className="text-sm font-medium text-gray-700">
-                        Quantity:
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() =>
-                            updateQuantity(
-                              item._id,
-                              item.size,
-                              Math.max(1, item.quantity - 1)
-                            )
-                          }
-                          className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100 transition-colors"
-                        >
-                          −
-                        </button>
-                        <input
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const newValue = Math.max(
-                              1,
-                              parseInt(e.target.value) || 1
-                            );
-                            updateQuantity(item._id, item.size, newValue);
-                          }}
-                          type="number"
-                          min={1}
-                          className="w-16 px-2 py-1.5 border rounded-md text-center focus:ring-2 focus:ring-black focus:outline-none"
-                        />
-                        <button
-                          onClick={() =>
-                            updateQuantity(
-                              item._id,
-                              item.size,
-                              item.quantity + 1
-                            )
-                          }
-                          className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100 transition-colors"
-                        >
-                          +
-                        </button>
+                  <div className="flex-1 w-full">
+                    <div className="flex flex-col sm:flex-row justify-between gap-4">
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          {productData.name}
+                        </h3>
+                        <div className="flex items-center gap-3 text-sm text-gray-500">
+                          <span className="px-2.5 py-1 bg-gray-100 rounded-full">
+                            Size: {item.size}
+                          </span>
+                          <span className="px-2.5 py-1 bg-gray-100 rounded-full">
+                            Color: {productData.color || "Black"}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          Material: {productData.material || "Pure Silk"}
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-gray-500">Price pending approval</p>
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => updateQuantity(item._id, item.size, 0)}
-                      className="text-red-600 hover:text-red-800 flex items-center gap-2 transition-colors"
-                    >
-                      <img
-                        className="w-4"
-                        src={assets.bin_icon}
-                        alt="Delete item"
-                      />
-                      <span className="text-sm font-medium">Remove</span>
-                    </button>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <label className="text-sm font-medium text-gray-700">
+                          Quantity:
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() =>
+                              updateQuantity(
+                                item._id,
+                                item.size,
+                                Math.max(1, item.quantity - 1)
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          >
+                            −
+                          </button>
+                          <input
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const newValue = Math.max(
+                                1,
+                                parseInt(e.target.value) || 1
+                              );
+                              updateQuantity(item._id, item.size, newValue);
+                            }}
+                            type="number"
+                            min={1}
+                            className="w-16 px-2 py-1.5 border rounded-md text-center focus:ring-2 focus:ring-black focus:outline-none"
+                          />
+                          <button
+                            onClick={() =>
+                              updateQuantity(
+                                item._id,
+                                item.size,
+                                item.quantity + 1
+                              )
+                            }
+                            className="w-8 h-8 rounded-lg border flex items-center justify-center hover:bg-gray-100 transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => updateQuantity(item._id, item.size, 0)}
+                        className="text-red-600 hover:text-red-800 flex items-center gap-2 transition-colors"
+                      >
+                        <img
+                          className="w-4"
+                          src={assets.bin_icon}
+                          alt="Delete item"
+                        />
+                        <span className="text-sm font-medium">Remove</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="mt-8 sm:mt-12 grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2">
-          <div className="bg-gray-50 p-6 rounded-lg">
-            <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
-            {priceRequest?.status === "approved" ? (
-              <CartTotal total={priceRequest.totalAmount} />
-            ) : (
-              <p className="text-gray-500">Pending admin approval</p>
-            )}
-          </div>
-        </div>
-
-        <div className="lg:col-span-1">
-          <div className="sticky top-4 space-y-6">
-            <div className="bg-black p-6 rounded-lg shadow-lg">
-              <h3 className="text-white text-lg font-semibold mb-4">
-                {priceRequest?.status === "approved"
-                  ? "Ready to Checkout?"
-                  : "Price Approval Request"}
-              </h3>
-
-              {!priceRequest && (
-                <button
-                  onClick={handleRequestToAdmin}
-                  className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                >
-                  Request Price Approval
-                </button>
-              )}
-
-              {priceRequest?.status === "pending" && (
-                <div className="text-center text-white">
-                  <p>Your request is pending admin approval</p>
-                </div>
-              )}
-
-              {priceRequest?.status === "rejected" && (
-                <div className="text-center text-white">
-                  <p className="text-red-300 mb-2">
-                    Request rejected: {priceRequest.rejectionReason}
-                  </p>
-                  <button
-                    onClick={handleRequestToAdmin}
-                    className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                  >
-                    Resubmit Request
-                  </button>
-                </div>
-              )}
-
-              {priceRequest?.status === "approved" && (
-                <>
-                  <button
-                    onClick={() => navigate("/place-order")}
-                    className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
-                  >
-                    Proceed to Secure Checkout
-                  </button>
-                  <p className="text-white text-sm mt-4 text-center">
-                    <span className="opacity-75">Need help?</span>{" "}
-                    <a href="/contact" className="underline hover:no-underline">
-                      Contact Support
-                    </a>
-                  </p>
-                </>
-              )}
-            </div>
-
-            {/* Shopping Benefits remains same */}
-          </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* New Request Submission */}
+      {cartData.length > 0 && (
+        <div className="bg-black p-6 rounded-lg shadow-lg mt-8">
+          <h3 className="text-white text-lg font-semibold mb-4">
+            Submit New Price Request
+          </h3>
+          <button
+            onClick={handleRequestToAdmin}
+            className="w-full bg-white text-black py-3.5 rounded-lg font-medium hover:bg-gray-100 transition-colors"
+          >
+            Request Price Approval for Current Cart
+          </button>
+        </div>
+      )}
     </div>
   );
 };

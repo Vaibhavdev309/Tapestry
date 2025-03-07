@@ -2,40 +2,34 @@ import React, { useContext, useEffect, useState } from "react";
 import { ShopContext } from "../context/ShopContext";
 import axios from "axios";
 import Title from "../components/Title";
+import { assets } from "../assets/assets";
+import { toast } from "react-toastify";
 
 const Orders = () => {
   const { currency, backendUrl, token } = useContext(ShopContext);
-  const [orderData, setOrderData] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const loadOrderData = async () => {
+  const loadOrders = async () => {
     try {
       if (!token) return;
-      const response = await axios.post(
-        `${backendUrl}/api/order/userorders`,
-        {},
-        { headers: { token } }
-      );
+      const response = await axios.get(`${backendUrl}/api/order/userorders`, {
+        headers: { token },
+      });
 
       if (response.data.success) {
-        const allOrdersItem = response.data.orders.flatMap((order) =>
-          order.items.map((item) => ({
-            ...item,
-            status: order.status,
-            payment: order.payment,
-            date: order.date,
-            paymentMethod: order.paymentMethod,
-            orderId: order._id,
-          }))
-        );
-        setOrderData(allOrdersItem);
+        setOrders(response.data.orders);
       }
     } catch (error) {
-      console.error("Error loading order data:", error.message);
+      console.error("Error loading orders:", error);
+      toast.error("Failed to load orders");
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (token) loadOrderData();
+    if (token) loadOrders();
   }, [token, backendUrl]);
 
   const getStatusColor = (status) => {
@@ -53,89 +47,102 @@ const Orders = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-4 py-12">
+        <Title text1="Order" text2="History" />
+        <div className="text-center py-8">
+          <p className="text-gray-500">Loading orders...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="max-w-7xl mx-auto px-4 py-12">
       <Title text1="Order" text2="History" />
 
-      {orderData.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No orders found</p>
+      {orders.length === 0 ? (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No orders found</p>
         </div>
       ) : (
         <div className="mt-8 space-y-6">
-          {orderData.slice(0, 3).map((item, index) => (
+          {orders.map((order) => (
             <div
-              key={`${item.orderId}-${index}`}
-              className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow"
+              key={order._id}
+              className="bg-white rounded-lg shadow-sm border p-6"
             >
-              <div className="flex flex-col md:flex-row gap-6">
-                {/* Product Image */}
-                <div className="w-full md:w-40 flex-shrink-0">
-                  <img
-                    src={item.image[0]}
-                    alt={item.name}
-                    className="w-full h-40 object-cover rounded-lg"
-                  />
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="font-semibold">
+                    Order ID: {order._id.slice(-8).toUpperCase()}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(order.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  </p>
                 </div>
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-3 h-3 rounded-full ${getStatusColor(
+                      order.status
+                    )}`}
+                  />
+                  <span className="text-sm capitalize">{order.status}</span>
+                </div>
+              </div>
 
-                {/* Order Details */}
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {item.name}
-                    </h3>
-                    <div className="space-y-1 text-sm">
-                      <p className="text-gray-600">
-                        <span className="font-medium">Price:</span> {currency}
-                        {item.price}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="font-medium">Quantity:</span>{" "}
-                        {item.quantity || 1}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="font-medium">Size:</span>{" "}
-                        {item.size || "M"}
-                      </p>
+              <div className="space-y-4">
+                {order.items.map((item) => (
+                  <div
+                    key={`${order._id}-${item.productId}`}
+                    className="flex gap-4 border-t pt-4"
+                  >
+                    <img
+                      src={
+                        item.productId?.image?.[0] || assets.placeholder_image
+                      }
+                      alt={item.productId?.name}
+                      className="w-20 h-20 object-cover rounded-lg"
+                      onError={(e) => {
+                        e.target.src = assets.placeholder_image;
+                      }}
+                    />
+                    <div className="flex-1">
+                      <h3 className="font-medium">
+                        {item.productId?.name || "Product"}
+                      </h3>
+                      <div className="text-sm text-gray-600 mt-1">
+                        <p>Size: {item.size}</p>
+                        <p>Quantity: {item.quantity}</p>
+                        <p>
+                          Price: {currency}
+                          {(item.price * item.quantity).toFixed(2)}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                ))}
+              </div>
 
-                  <div className="space-y-4">
-                    <div className="space-y-1 text-sm">
-                      <p className="text-gray-600">
-                        <span className="font-medium">Order Date:</span>{" "}
-                        {new Date(item.date).toLocaleDateString("en-US", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
-                      <p className="text-gray-600">
-                        <span className="font-medium">Payment Method:</span>{" "}
-                        <span className="capitalize">{item.paymentMethod}</span>
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row justify-between items-start gap-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-3 h-3 rounded-full ${getStatusColor(
-                            item.status
-                          )}`}
-                        ></div>
-                        <span className="text-sm font-medium capitalize">
-                          {item.status || "Processing"}
-                        </span>
-                      </div>
-                      <button
-                        onClick={loadOrderData}
-                        className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 transition-colors"
-                      >
-                        Track Order
-                      </button>
-                    </div>
+              <div className="mt-6 pt-4 border-t">
+                <div className="flex justify-between items-center">
+                  <div className="text-sm">
+                    <p className="font-medium">Total Amount:</p>
+                    <p className="text-gray-600">
+                      {currency}
+                      {order.amount.toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="text-sm">
+                    <p className="font-medium">Payment Method:</p>
+                    <p className="text-gray-600 capitalize">
+                      {order.paymentMethod}
+                    </p>
                   </div>
                 </div>
               </div>
