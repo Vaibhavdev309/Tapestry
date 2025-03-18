@@ -4,7 +4,8 @@ import { backendUrl } from "../App";
 import io from "socket.io-client";
 
 const ENDPOINT = "http://localhost:4000";
-var socket, selectedChatCompare;
+const socket = io(ENDPOINT);
+
 const Chat = ({ token, isAdmin }) => {
   const [chats, setChats] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -12,54 +13,55 @@ const Chat = ({ token, isAdmin }) => {
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const messagesEndRef = useRef(null); // For auto-scrolling
-  const [socketConnected, setSocketConnected] = useState(false);
-  const selectedChatRef = useRef(null); // To store selectedChat persistently
+  const [unreadCounts, setUnreadCounts] = useState({});
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
-  const [notification, setNotification] = useState([]);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    socket = io(ENDPOINT);
     socket.emit("setup", { _id: "admin" });
-    socket.on("connection", () => {
-      setSocketConnected(true);
-    });
+    socket.on("connect", () => console.log("Admin socket connected"));
+    return () => socket.disconnect();
   }, []);
+
   useEffect(() => {
     fetchChats();
   }, []);
+
   useEffect(() => {
     socket.on("message received", (newMessageReceived) => {
-      if (
-        selectedChatRef.current &&
-        selectedChatRef.current._id === newMessageReceived.chatId
-      ) {
+      if (selectedChat && selectedChat._id === newMessageReceived.chatId) {
         setMessages((prev) => [...prev, newMessageReceived]);
+      } else {
+        fetchUnreadCount(newMessageReceived.chatId);
       }
     });
-
     return () => socket.off("message received");
   }, [selectedChat]);
 
   useEffect(() => {
-    console.log("Selected chat changed:", selectedChat);
-    if (selectedChat) {
-      fetchMessages(selectedChat._id);
-      selectedChatRef.current = selectedChat; // Store the selected chat
-    }
-  }, [selectedChat]);
-  useEffect(() => {
-    socket.on("typing", () => {
-      setIsTyping(true);
+    socket.on("unread update", (data) => {
+      if (!selectedChat || selectedChat._id !== data.chatId) {
+        fetchUnreadCount(data.chatId);
+      }
     });
-    socket.on("stop typing", () => setIsTyping(false));
+    return () => socket.off("unread update");
+  }, [selectedChat]);
 
+  useEffect(() => {
+    socket.on("typing", () => setIsTyping(true));
+    socket.on("stop typing", () => setIsTyping(false));
     return () => {
       socket.off("typing");
       socket.off("stop typing");
     };
   }, []);
+
+  useEffect(() => {
+    if (selectedChat) {
+      fetchMessages(selectedChat._id);
+    }
+  }, [selectedChat]);
 
   useEffect(() => {
     scrollToBottom();
@@ -69,7 +71,6 @@ const Chat = ({ token, isAdmin }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Fetch user chats
   const fetchChats = async () => {
     try {
       const response = await axios.get(backendUrl + "/api/chat/fetchchats", {
@@ -77,13 +78,21 @@ const Chat = ({ token, isAdmin }) => {
       });
       if (response.data.success) {
         setChats(response.data.chats);
+        const counts = {};
+        for (const chat of response.data.chats) {
+          const unreadResponse = await axios.get(
+            `${backendUrl}/api/message/unread/${chat._id}`,
+            { headers: { token } }
+          );
+          counts[chat._id] = unreadResponse.data.count;
+        }
+        setUnreadCounts(counts);
       }
     } catch (error) {
       console.error("Error fetching chats:", error);
     }
   };
 
-  // Fetch messages for a selected chat
   const fetchMessages = async (chatId) => {
     try {
       const response = await axios.get(`${backendUrl}/api/message/${chatId}`, {
@@ -91,10 +100,32 @@ const Chat = ({ token, isAdmin }) => {
       });
       if (response.data.success) {
         setMessages(response.data.messages);
+        socket.emit("join chat", chatId);
+        await axios.post(
+          `${backendUrl}/api/message/mark-read`,
+          { chatId },
+          { headers: { token } }
+        );
+        setUnreadCounts((prev) => ({ ...prev, [chatId]: 0 })); // Reset unread count for this chat
       }
-      socket.emit("join chat", chatId);
     } catch (error) {
       console.error("Error fetching messages:", error);
+    }
+  };
+
+  const fetchUnreadCount = async (chatId) => {
+    if (selectedChat && selectedChat._id === chatId) return; // Skip if chat is selected
+    try {
+      const response = await axios.get(
+        `${backendUrl}/api/message/unread/${chatId}`,
+        { headers: { token } }
+      );
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [chatId]: response.data.count,
+      }));
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
     }
   };
 
@@ -107,9 +138,7 @@ const Chat = ({ token, isAdmin }) => {
     try {
       const response = await axios.get(
         backendUrl + `/api/chat/searchuser?search=${searchQuery}`,
-        {
-          headers: { token },
-        }
+        { headers: { token } }
       );
       if (response.data.success) {
         setSearchResults(response.data.users);
@@ -128,42 +157,38 @@ const Chat = ({ token, isAdmin }) => {
       );
       if (response.data.success) {
         setSelectedChat(response.data.chat);
-        fetchChats(); // Refresh chat list
+        fetchChats();
       }
     } catch (error) {
       console.error("Error starting new chat:", error);
     }
   };
 
-  // Send message function
   const sendMessage = async () => {
     if (!newMessage.trim()) return;
-
     try {
       const response = await axios.post(
         backendUrl + "/api/message/send",
         {
           chatId: selectedChat._id,
           content: newMessage,
-          isAdmin: true, // Pass isAdmin flag to backend
+          isAdmin: true,
         },
         { headers: { token } }
       );
-
       if (response.data.success) {
-        setMessages([...messages, response.data.message]); // Update UI with new message
+        setMessages((prev) => [...prev, response.data.message]);
         setNewMessage("");
+        socket.emit("new Message", response.data);
         scrollToBottom();
       }
-      console.log(response.data);
-      socket.emit("new Message", response.data);
     } catch (error) {
       console.error("Error sending message:", error);
     }
   };
+
   const typingHandler = (e) => {
     setNewMessage(e.target.value);
-
     if (!socket) return;
 
     if (!typingTimeout) {
@@ -182,7 +207,6 @@ const Chat = ({ token, isAdmin }) => {
 
   return (
     <div className="flex h-screen">
-      {/* Left Sidebar */}
       <div className="w-1/3 border-r border-gray-300 p-4">
         <h3 className="text-lg font-semibold mb-4">Chats</h3>
         <form onSubmit={handleSearch} className="mb-4">
@@ -201,7 +225,6 @@ const Chat = ({ token, isAdmin }) => {
           </button>
         </form>
 
-        {/* Search Results */}
         {searchResults.length > 0 && (
           <div className="mb-4">
             <h4 className="font-medium text-gray-600 mb-2">Search Results:</h4>
@@ -217,7 +240,6 @@ const Chat = ({ token, isAdmin }) => {
           </div>
         )}
 
-        {/* Chats List */}
         {chats.length > 0 ? (
           chats.map((chat) => (
             <div
@@ -228,6 +250,11 @@ const Chat = ({ token, isAdmin }) => {
               } hover:bg-gray-50`}
             >
               {chat.userId?.name || "Unknown"} - {chat.userId?.email || ""}
+              {unreadCounts[chat._id] > 0 && (
+                <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                  {unreadCounts[chat._id]}
+                </span>
+              )}
             </div>
           ))
         ) : (
@@ -235,29 +262,24 @@ const Chat = ({ token, isAdmin }) => {
         )}
       </div>
 
-      {/* Right Chat Section */}
       <div className="flex-1 p-4 flex flex-col">
         {selectedChat ? (
           <div className="flex flex-col h-full">
             <h3 className="text-xl font-semibold mb-4">
               Chat with {selectedChat.userId?.name || "Unknown"}
             </h3>
-
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 bg-gray-100 rounded-lg">
               {messages.length > 0 ? (
                 messages.map((msg) => (
                   <div
                     key={msg._id}
                     className={`flex ${
-                      msg.sender === (isAdmin ? "admin" : "user")
-                        ? "justify-end"
-                        : "justify-start"
+                      msg.sender === "admin" ? "justify-end" : "justify-start"
                     } mb-2`}
                   >
                     <span
                       className={`px-4 py-2 rounded-lg max-w-xs ${
-                        msg.sender === (isAdmin ? "admin" : "user")
+                        msg.sender === "admin"
                           ? "bg-blue-500 text-white"
                           : "bg-gray-300 text-black"
                       }`}
@@ -271,10 +293,8 @@ const Chat = ({ token, isAdmin }) => {
               )}
               <div ref={messagesEndRef} />
             </div>
-
-            {/* Message Input */}
             {isTyping && (
-              <span className="text-xs opacity-75">Admin is typing...</span>
+              <span className="text-xs opacity-75">User is typing...</span>
             )}
             <div className="mt-4 flex">
               <input

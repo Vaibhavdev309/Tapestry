@@ -15,7 +15,6 @@ const accessChat = async (req, res) => {
 
     if (!chat) {
       chat = await chatModel.create({ userId });
-
       chat = await chatModel.findById(chat._id).populate({
         path: "userId",
         select: "name email",

@@ -41,12 +41,9 @@ const Cart = () => {
       try {
         const response = await axios.get(
           `${backendUrl}/api/price-requests/user`,
-          {
-            headers: { token },
-          }
+          { headers: { token } }
         );
         if (response.data.success) {
-          // Filter out completed requests
           const filteredRequests = response.data.priceRequests.filter(
             (req) => req.status !== "completed"
           );
@@ -80,6 +77,52 @@ const Cart = () => {
       }
     } catch (error) {
       toast.error(error.response?.data?.message || "Error submitting request");
+    }
+  };
+
+  const handleDeleteRequest = async (requestId) => {
+    try {
+      const confirmDelete = window.confirm(
+        "Are you sure you want to delete this request?"
+      );
+      if (!confirmDelete) return;
+
+      const response = await axios.delete(
+        `${backendUrl}/api/price-requests/${requestId}`,
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        setPriceRequests((prev) => prev.filter((req) => req._id !== requestId));
+        if (activeRequest === requestId) setActiveRequest(null);
+        toast.success("Request deleted successfully");
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Error deleting request");
+    }
+  };
+
+  const handleResubmitRequest = async (requestId) => {
+    try {
+      const originalRequest = priceRequests.find(
+        (req) => req._id === requestId
+      );
+      if (!originalRequest) return;
+
+      const response = await axios.post(
+        `${backendUrl}/api/price-requests/create`,
+        { items: originalRequest.items },
+        { headers: { token } }
+      );
+
+      if (response.data.success) {
+        setPriceRequests([response.data.priceRequest, ...priceRequests]);
+        toast.success("Request resubmitted successfully");
+      }
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Error resubmitting request"
+      );
     }
   };
 
@@ -119,16 +162,56 @@ const Cart = () => {
                     Status: {request.status}
                   </p>
                 </div>
-                <button
-                  onClick={() =>
-                    setActiveRequest(
-                      activeRequest === request._id ? null : request._id
-                    )
-                  }
-                  className="text-black hover:text-gray-600"
-                >
-                  {activeRequest === request._id ? "▼" : "▶"}
-                </button>
+                <div className="flex items-center gap-3">
+                  {request.status === "rejected" && (
+                    <button
+                      onClick={() => handleResubmitRequest(request._id)}
+                      className="text-blue-600 hover:text-blue-800"
+                      title="Resubmit request"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteRequest(request._id)}
+                    className="text-red-500 hover:text-red-700"
+                    title="Delete request"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-5 w-5"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={() =>
+                      setActiveRequest(
+                        activeRequest === request._id ? null : request._id
+                      )
+                    }
+                    className="text-black hover:text-gray-600"
+                  >
+                    {activeRequest === request._id ? "▼" : "▶"}
+                  </button>
+                </div>
               </div>
 
               {activeRequest === request._id && (

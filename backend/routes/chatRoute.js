@@ -15,8 +15,7 @@ chatRouter.get("/", (req, res) => {
 });
 
 chatRouter.get("/searchuser", adminAuth, searchUser);
-chatRouter.get("/accesschat", authUser, accessChat);
 chatRouter.get("/fetchchats", adminAuth, fetchChats);
-chatRouter.post("/accesschat", adminAuth, accessChat);
+chatRouter.post("/accesschat", authUser, accessChat);
 
 export default chatRouter;

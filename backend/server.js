@@ -12,13 +12,11 @@ import chatRouter from "./routes/chatRoute.js";
 import messageRouter from "./routes/messageRoute.js";
 import priceRequestRouter from "./routes/priceRequestRouter.js";
 
-//App config
 const app = express();
 const port = process.env.PORT || 4000;
 connectDB();
 connectCloudinary();
 
-// Middlewares
 app.use(express.json());
 app.use(cors());
 
@@ -30,7 +28,6 @@ app.use("/api/chat", chatRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/price-requests", priceRequestRouter);
 
-//API Endpoints
 app.get("/", (req, res) => {
   res.send("API working");
 });
@@ -48,26 +45,45 @@ const io = new Server(server, {
 
 io.on("connection", (socket) => {
   console.log("Socket connected: " + socket.id);
+
   socket.on("setup", (userData) => {
-    socket.join(userData._id);
-    console.log("User joined room: " + userData._id);
+    if (userData._id === "admin") {
+      socket.join("admin");
+    } else {
+      socket.join(userData._id);
+    }
     socket.emit("connection");
   });
+
   socket.on("join chat", (room) => {
     socket.join(room);
     console.log("User joined chat room: " + room);
   });
-  socket.on("new Message", (newMessageReceived) => {
-    const chatId = newMessageReceived.message.chatId; // Use chatId from the message
 
-    // Broadcast the message to all clients in the chat room
-    socket.to(chatId).emit("message received", newMessageReceived.message);
+  socket.on("new Message", (newMessageReceived) => {
+    const chatId = newMessageReceived.message.chatId;
+    const sender = newMessageReceived.message.sender;
+
+    io.to(chatId).emit("message received", newMessageReceived.message);
+
+    if (sender === "user") {
+      io.to("admin").emit("unread update", { chatId });
+    } else {
+      io.to(newMessageReceived.message.chatId).emit("unread update", {
+        chatId,
+      });
+    }
   });
+
   socket.on("typing", (chatId) => {
-    socket.to(chatId).emit("typing"); // Remove chatId from the payload
+    socket.to(chatId).emit("typing");
   });
 
   socket.on("stop typing", (chatId) => {
-    socket.to(chatId).emit("stop typing"); // Remove chatId from the payload
+    socket.to(chatId).emit("stop typing");
+  });
+
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected: " + socket.id);
   });
 });

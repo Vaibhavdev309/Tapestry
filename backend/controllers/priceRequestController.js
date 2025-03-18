@@ -114,6 +114,37 @@ export const getUserRequests = async (req, res) => {
 };
 
 // Get all pending requests (admin)
+export const deleteRequest = async (req, res) => {
+  try {
+    const request = await PriceRequest.findById(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: "Request not found",
+      });
+    }
+    console.log(request.userId.toString(), req.body.userId);
+    if (request.userId.toString() !== req.body.userId && !req.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: "Unauthorized to delete this request",
+      });
+    }
+
+    await PriceRequest.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: "Request deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 export const getAdminRequests = async (req, res) => {
   console.log("i cam here");
   try {

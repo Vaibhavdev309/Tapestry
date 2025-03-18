@@ -2,28 +2,33 @@ import messageModel from "../models/messageModel.js";
 import chatModel from "../models/chatModel.js";
 
 const sendMessage = async (req, res) => {
-  console.log(req.body);
   try {
-    const { chatId, content, isAdmin } = req.body; // isAdmin flag to differentiate sender
+    const { chatId, content, isAdmin } = req.body;
     if (!chatId || !content) {
       return res
         .status(400)
-        .json({ success: false, message: "Invalid message" });
+        .json({ success: false, message: "Chat ID and content are required" });
     }
 
     const chat = await chatModel.findById(chatId);
     if (!chat) {
       return res
         .status(404)
-        .json({ success: false, message: "Invalid chat ID" });
+        .json({ success: false, message: "Chat not found" });
     }
 
     const sender = isAdmin ? "admin" : "user";
+    const newMessage = await messageModel.create({
+      chatId,
+      content,
+      sender,
+      read: false,
+    });
 
-    const newMessage = await messageModel.create({ chatId, content, sender });
     chat.latestMessage = newMessage._id;
     chat.updatedAt = Date.now();
     await chat.save();
+
     res.json({ success: true, message: newMessage });
   } catch (error) {
     console.log(error.message);
@@ -36,28 +41,42 @@ const allMessages = async (req, res) => {
     const messages = await messageModel.find({ chatId: req.params.chatId });
     res.json({ success: true, messages });
   } catch (error) {
+    console.log(error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-const readMessage = async (req, res) => {
+const markMessagesRead = async (req, res) => {
   try {
     const { chatId } = req.body;
-    const isAdmin = req.user.isAdmin;
+    if (!chatId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Chat ID is required" });
+    }
 
-    await Message.updateMany(
-      {
-        chatId,
-        sender: isAdmin ? "user" : "admin",
-        read: false,
-      },
-      { read: true }
+    await messageModel.updateMany(
+      { chatId, read: false },
+      { $set: { read: true } }
     );
-
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.log(error.message);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-export { sendMessage, allMessages, readMessage };
+const getUnreadCount = async (req, res) => {
+  try {
+    const count = await messageModel.countDocuments({
+      chatId: req.params.chatId,
+      read: false,
+    });
+    res.json({ success: true, count });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { sendMessage, allMessages, markMessagesRead, getUnreadCount };

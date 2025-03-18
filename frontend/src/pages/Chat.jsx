@@ -5,132 +5,143 @@ import { IoChatbubbleEllipsesSharp, IoClose } from "react-icons/io5";
 import io from "socket.io-client";
 
 const ENDPOINT = "http://localhost:4000";
-let socket;
+const socket = io(ENDPOINT);
 
 const UserChat = () => {
   const { backendUrl, token } = useContext(ShopContext);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [chatId, setChatId] = useState(null);
-  const [isOpen, setIsOpen] = useState(false);
   const [userId, setUserId] = useState(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
   const messagesEndRef = useRef(null);
 
-  // Socket initialization
   useEffect(() => {
-    socket = io(ENDPOINT);
-    return () => {
-      socket.disconnect();
-    };
+    socket.on("connect", () => console.log("User socket connected"));
+    return () => socket.disconnect();
   }, []);
 
-  // Socket setup when user is available
   useEffect(() => {
     if (userId) {
       socket.emit("setup", { _id: userId });
-      socket.on("connected", () => console.log("Socket connected"));
+      console.log("Socket setup for user:", userId);
     }
   }, [userId]);
 
-  // Message reception handler
   useEffect(() => {
     socket.on("message received", (newMessage) => {
-      if (!chatId || newMessage.chatId !== chatId) return;
-      setMessages((prev) => [...prev, newMessage]);
+      if (chatId && newMessage.chatId === chatId) {
+        setMessages((prev) => [...prev, newMessage]);
+        if (!isOpen) {
+          fetchUnreadCount();
+        }
+      }
     });
-
     return () => socket.off("message received");
-  }, [chatId]);
+  }, [chatId, isOpen]);
 
-  // Typing indicators
   useEffect(() => {
-    socket.on("typing", () => {
-      setIsTyping(true);
+    socket.on("unread update", (data) => {
+      if (data.chatId === chatId && !isOpen) {
+        fetchUnreadCount();
+      }
     });
-    socket.on("stop typing", () => setIsTyping(false));
+    return () => socket.off("unread update");
+  }, [chatId, isOpen]);
 
+  useEffect(() => {
+    socket.on("typing", () => setIsTyping(true));
+    socket.on("stop typing", () => setIsTyping(false));
     return () => {
       socket.off("typing");
       socket.off("stop typing");
     };
   }, []);
 
-  // Fetch initial chat data
   useEffect(() => {
     const fetchChat = async () => {
+      if (!token) return;
       try {
-        const response = await axios.get(`${backendUrl}/api/chat/accessChat`, {
-          headers: { token },
-        });
-
-        if (response.data.success) {
-          setChatId(response.data.chat._id);
-          setUserId(response.data.chat.userId._id);
-        }
-      } catch (error) {
-        console.error("Chat fetch error:", error);
-      }
-    };
-
-    if (isOpen) fetchChat();
-  }, [isOpen, backendUrl, token]);
-
-  // Fetch messages when chat is selected
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const response = await axios.get(
-          `${backendUrl}/api/message/${chatId}`,
+        const response = await axios.post(
+          `${backendUrl}/api/chat/accesschat`,
+          {},
           { headers: { token } }
         );
-
         if (response.data.success) {
-          setMessages(response.data.messages);
-          socket.emit("join chat", chatId);
+          const fetchedChatId = response.data.chat._id;
+          const fetchedUserId = response.data.chat.userId._id;
+          setChatId(fetchedChatId);
+          setUserId(fetchedUserId);
+          fetchMessages(fetchedChatId);
         }
       } catch (error) {
-        console.error("Message fetch error:", error);
+        console.error("Chat fetch error:", error.message);
       }
     };
+    fetchChat();
+  }, [backendUrl, token]);
 
-    if (chatId) fetchMessages();
-  }, [chatId, backendUrl, token]);
-
-  // Auto-scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const fetchMessages = async (chatIdParam) => {
+    try {
+      const response = await axios.get(
+        `${backendUrl}/api/message/${chatIdParam}`,
+        { headers: { token } }
+      );
+      if (response.data.success) {
+        setMessages(response.data.messages);
+        socket.emit("join chat", chatIdParam);
+        if (isOpen) {
+          await axios.post(
+            `${backendUrl}/api/message/mark-read`,
+            { chatId: chatIdParam },
+            { headers: { token } }
+          );
+          setUnreadCount(0); // Reset unread count when chat is open
+        }
+      }
+    } catch (error) {
+      console.error("Message fetch error:", error.message);
+    }
   };
-  useEffect(scrollToBottom, [messages]);
 
-  // Message sending handler
+  const fetchUnreadCount = async (chatIdParam = chatId) => {
+    if (!chatIdParam || isOpen) return; // Skip if chat is open
+    try {
+      const response = await axios.get(
+        `${backendUrl}/api/message/unread/${chatIdParam}`,
+        { headers: { token } }
+      );
+      setUnreadCount(response.data.count);
+    } catch (error) {
+      console.error("Error fetching unread count:", error.message);
+    }
+  };
+
   const sendMessage = async () => {
     if (!newMessage.trim() || !chatId) return;
-
     try {
       const response = await axios.post(
         `${backendUrl}/api/message/send`,
         { chatId, content: newMessage, isAdmin: false },
         { headers: { token } }
       );
-
       if (response.data.success) {
         setMessages((prev) => [...prev, response.data.message]);
         setNewMessage("");
-        socket.emit("stop typing", chatId);
         socket.emit("new Message", response.data);
+        socket.emit("stop typing", chatId);
       }
     } catch (error) {
-      console.error("Message send error:", error);
+      console.error("Message send error:", error.message);
     }
   };
 
-  // Typing detection handler
   const typingHandler = (e) => {
     setNewMessage(e.target.value);
-
-    if (!socket) return;
+    if (!socket || !chatId) return;
 
     if (!typingTimeout) {
       socket.emit("typing", chatId);
@@ -146,22 +157,30 @@ const UserChat = () => {
     );
   };
 
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+  useEffect(scrollToBottom, [messages]);
+
   return (
     <div className="fixed bottom-6 right-6 flex flex-col items-end z-50">
-      {/* Floating Chat Button */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen && chatId) {
+            fetchMessages(chatId); // Fetch messages and reset unread count when opening
+          }
+        }}
         className="bg-blue-600 text-white p-4 rounded-full shadow-xl hover:bg-blue-700 transition-all duration-300 hover:scale-110 hover:shadow-2xl relative"
       >
         <IoChatbubbleEllipsesSharp size={24} />
-        {messages.length > 0 && (
+        {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
-            {messages.length}
+            {unreadCount}
           </span>
         )}
       </button>
 
-      {/* Chat Window */}
       {isOpen && (
         <div
           className="fixed bottom-24 right-6 w-80 bg-white shadow-2xl border border-gray-200 rounded-xl flex flex-col"
@@ -171,18 +190,8 @@ const UserChat = () => {
             bottom: "6rem",
             right: "1.5rem",
             maxWidth: "95vw",
-            // Mobile styles
-            "@media (max-width: 640px)": {
-              width: "100vw",
-              right: 0,
-              bottom: 0,
-              borderRadius: 0,
-              maxHeight: "100vh",
-              height: "calc(100vh - 80px)",
-            },
           }}
         >
-          {/* Header */}
           <div className="bg-blue-600 text-white px-4 py-3 flex justify-between items-center rounded-t-xl">
             <div className="flex items-center gap-2">
               <span className="font-semibold">Support Chat</span>
@@ -198,11 +207,7 @@ const UserChat = () => {
             </button>
           </div>
 
-          {/* Messages Container */}
-          <div
-            className="flex-1 overflow-y-auto p-4 bg-gray-50"
-            style={{ minHeight: "200px" }}
-          >
+          <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
             <div className="space-y-3">
               {messages.map((msg, index) => (
                 <div
@@ -239,7 +244,6 @@ const UserChat = () => {
             </div>
           </div>
 
-          {/* Input Area */}
           <div className="p-4 border-t border-gray-100 bg-white">
             <div className="flex gap-2">
               <input

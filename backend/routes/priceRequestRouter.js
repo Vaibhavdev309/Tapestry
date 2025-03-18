@@ -7,6 +7,7 @@ import {
   rejectRequest,
   getUserRequests,
   getRequest,
+  deleteRequest,
 } from "../controllers/priceRequestController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import authUser from "../middleware/authUser.js";
@@ -22,5 +23,6 @@ priceRequestRouter.get("/user/:id", authUser, getRequest);
 priceRequestRouter.get("/admin", adminAuth, getAdminRequests);
 priceRequestRouter.post("/approve/:id", adminAuth, approveRequest);
 priceRequestRouter.post("/reject/:id", adminAuth, rejectRequest);
+priceRequestRouter.delete("/:id", authUser, deleteRequest);
 
 export default priceRequestRouter;
