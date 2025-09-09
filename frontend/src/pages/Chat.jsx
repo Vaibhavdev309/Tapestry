@@ -5,7 +5,6 @@ import { IoChatbubbleEllipsesSharp, IoClose } from "react-icons/io5";
 import io from "socket.io-client";
 
 const ENDPOINT = "http://localhost:4000";
-const socket = io(ENDPOINT);
 
 const UserChat = () => {
   const { backendUrl, token } = useContext(ShopContext);
@@ -17,49 +16,90 @@ const UserChat = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isTyping, setIsTyping] = useState(false);
   const [typingTimeout, setTypingTimeout] = useState(null);
+  const [socket, setSocket] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const messagesEndRef = useRef(null);
 
+  // Initialize socket with authentication
   useEffect(() => {
-    socket.on("connect", () => console.log("User socket connected"));
-    return () => socket.disconnect();
-  }, []);
+    if (token) {
+      const newSocket = io(ENDPOINT, {
+        auth: {
+          token: token
+        }
+      });
 
-  useEffect(() => {
-    if (userId) {
-      socket.emit("setup", { _id: userId });
-      console.log("Socket setup for user:", userId);
+      newSocket.on("connect", () => {
+        console.log("User socket connected");
+        setConnectionStatus("connected");
+      });
+
+      newSocket.on("disconnect", () => {
+        console.log("User socket disconnected");
+        setConnectionStatus("disconnected");
+      });
+
+      newSocket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error.message);
+        setConnectionStatus("error");
+      });
+
+      setSocket(newSocket);
+
+      return () => {
+        newSocket.disconnect();
+      };
     }
-  }, [userId]);
+  }, [token]);
 
   useEffect(() => {
-    socket.on("message received", (newMessage) => {
-      if (chatId && newMessage.chatId === chatId) {
-        setMessages((prev) => [...prev, newMessage]);
-        if (!isOpen) {
+    if (socket && userId) {
+      socket.emit("setup", { _id: userId });
+    }
+  }, [socket, userId]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.on("message received", (newMessage) => {
+        if (chatId && newMessage.chatId === chatId) {
+          setMessages((prev) => [...prev, newMessage]);
+          if (!isOpen) {
+            fetchUnreadCount();
+          }
+        }
+      });
+
+      socket.on("unread update", (data) => {
+        if (data.chatId === chatId && !isOpen) {
           fetchUnreadCount();
         }
-      }
-    });
-    return () => socket.off("message received");
-  }, [chatId, isOpen]);
+      });
 
-  useEffect(() => {
-    socket.on("unread update", (data) => {
-      if (data.chatId === chatId && !isOpen) {
-        fetchUnreadCount();
-      }
-    });
-    return () => socket.off("unread update");
-  }, [chatId, isOpen]);
+      socket.on("typing", (data) => {
+        if (data.userId !== userId) {
+          setIsTyping(true);
+        }
+      });
 
-  useEffect(() => {
-    socket.on("typing", () => setIsTyping(true));
-    socket.on("stop typing", () => setIsTyping(false));
-    return () => {
-      socket.off("typing");
-      socket.off("stop typing");
-    };
-  }, []);
+      socket.on("stop typing", (data) => {
+        if (data.userId !== userId) {
+          setIsTyping(false);
+        }
+      });
+
+      socket.on("error", (error) => {
+        console.error("Socket error:", error.message);
+      });
+
+      return () => {
+        socket.off("message received");
+        socket.off("unread update");
+        socket.off("typing");
+        socket.off("stop typing");
+        socket.off("error");
+      };
+    }
+  }, [socket, chatId, isOpen, userId]);
 
   useEffect(() => {
     const fetchChat = async () => {
@@ -68,7 +108,11 @@ const UserChat = () => {
         const response = await axios.post(
           `${backendUrl}/api/chat/accesschat`,
           {},
-          { headers: { token } }
+          { 
+            headers: { 
+              Authorization: `Bearer ${token}` 
+            } 
+          }
         );
         if (response.data.success) {
           const fetchedChatId = response.data.chat._id;
@@ -78,7 +122,7 @@ const UserChat = () => {
           fetchMessages(fetchedChatId);
         }
       } catch (error) {
-        console.error("Chat fetch error:", error.message);
+        console.error("Chat fetch error:", error.response?.data?.message || error.message);
       }
     };
     fetchChat();
@@ -88,45 +132,63 @@ const UserChat = () => {
     try {
       const response = await axios.get(
         `${backendUrl}/api/message/${chatIdParam}`,
-        { headers: { token } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}` 
+          } 
+        }
       );
       if (response.data.success) {
         setMessages(response.data.messages);
-        socket.emit("join chat", chatIdParam);
+        if (socket) {
+          socket.emit("join chat", chatIdParam);
+        }
         if (isOpen) {
           await axios.post(
             `${backendUrl}/api/message/mark-read`,
             { chatId: chatIdParam },
-            { headers: { token } }
+            { 
+              headers: { 
+                Authorization: `Bearer ${token}` 
+              } 
+            }
           );
-          setUnreadCount(0); // Reset unread count when chat is open
+          setUnreadCount(0);
         }
       }
     } catch (error) {
-      console.error("Message fetch error:", error.message);
+      console.error("Message fetch error:", error.response?.data?.message || error.message);
     }
   };
 
   const fetchUnreadCount = async (chatIdParam = chatId) => {
-    if (!chatIdParam || isOpen) return; // Skip if chat is open
+    if (!chatIdParam || isOpen) return;
     try {
       const response = await axios.get(
         `${backendUrl}/api/message/unread/${chatIdParam}`,
-        { headers: { token } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}` 
+          } 
+        }
       );
       setUnreadCount(response.data.count);
     } catch (error) {
-      console.error("Error fetching unread count:", error.message);
+      console.error("Error fetching unread count:", error.response?.data?.message || error.message);
     }
   };
 
   const sendMessage = async () => {
-    if (!newMessage.trim() || !chatId) return;
+    if (!newMessage.trim() || !chatId || !socket) return;
     try {
       const response = await axios.post(
         `${backendUrl}/api/message/send`,
         { chatId, content: newMessage, isAdmin: false },
-        { headers: { token } }
+        { 
+          headers: { 
+            Authorization: `Bearer ${token}` 
+          } 
+        }
       );
       if (response.data.success) {
         setMessages((prev) => [...prev, response.data.message]);
@@ -135,7 +197,7 @@ const UserChat = () => {
         socket.emit("stop typing", chatId);
       }
     } catch (error) {
-      console.error("Message send error:", error.message);
+      console.error("Message send error:", error.response?.data?.message || error.message);
     }
   };
 
@@ -162,22 +224,34 @@ const UserChat = () => {
   };
   useEffect(scrollToBottom, [messages]);
 
+  const handleChatToggle = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen && chatId) {
+      fetchMessages(chatId);
+    }
+  };
+
   return (
     <div className="fixed bottom-6 right-6 flex flex-col items-end z-50">
       <button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          if (!isOpen && chatId) {
-            fetchMessages(chatId); // Fetch messages and reset unread count when opening
-          }
-        }}
-        className="bg-blue-600 text-white p-4 rounded-full shadow-xl hover:bg-blue-700 transition-all duration-300 hover:scale-110 hover:shadow-2xl relative"
+        onClick={handleChatToggle}
+        className={`p-4 rounded-full shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl relative ${
+          connectionStatus === "connected" 
+            ? "bg-blue-600 hover:bg-blue-700" 
+            : connectionStatus === "error"
+            ? "bg-red-600 hover:bg-red-700"
+            : "bg-gray-600 hover:bg-gray-700"
+        } text-white`}
+        title={connectionStatus === "connected" ? "Chat is connected" : "Chat connection issue"}
       >
         <IoChatbubbleEllipsesSharp size={24} />
         {unreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-xs w-5 h-5 rounded-full flex items-center justify-center animate-pulse">
             {unreadCount}
           </span>
+        )}
+        {connectionStatus !== "connected" && (
+          <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
         )}
       </button>
 
@@ -197,6 +271,9 @@ const UserChat = () => {
               <span className="font-semibold">Support Chat</span>
               {isTyping && (
                 <span className="text-xs opacity-75">Admin is typing...</span>
+              )}
+              {connectionStatus !== "connected" && (
+                <span className="text-xs opacity-75 text-red-200">Connection issue</span>
               )}
             </div>
             <button
@@ -251,11 +328,13 @@ const UserChat = () => {
                 placeholder="Type your message..."
                 value={newMessage}
                 onChange={typingHandler}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+                disabled={connectionStatus !== "connected"}
               />
               <button
                 onClick={sendMessage}
-                disabled={!newMessage.trim()}
+                disabled={!newMessage.trim() || connectionStatus !== "connected"}
                 className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <svg

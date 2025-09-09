@@ -7,12 +7,16 @@ import {
 } from "../controllers/orderController.js";
 import adminAuth from "../middleware/adminAuth.js";
 import authUser from "../middleware/authUser.js";
+import { validateOrder } from "../middleware/validation.js";
 
 const orderRouter = express.Router();
 
-orderRouter.post("/placeorder", authUser, placeOrder);
-orderRouter.post("/list", adminAuth, allOrders);
+// User routes (protected)
+orderRouter.post("/placeorder", authUser, validateOrder, placeOrder);
 orderRouter.get("/userorders", authUser, userOrders);
+
+// Admin routes (protected)
+orderRouter.get("/list", adminAuth, allOrders);
 orderRouter.post("/status", adminAuth, updateStatus);
 
 export default orderRouter;
