@@ -20,6 +20,7 @@ import messageRouter from "./routes/messageRoute.js";
 import priceRequestRouter from "./routes/priceRequestRouter.js";
 import paymentRouter from "./routes/paymentRoute.js";
 import notificationRouter from "./routes/notificationRoute.js";
+import inventoryRouter from "./routes/inventoryRoute.js";
 
 // Validate environment variables
 validateEnv();
@@ -111,6 +112,7 @@ app.use("/api/message", messageRouter);
 app.use("/api/price-requests", priceRequestRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/notifications", notificationRouter);
+app.use("/api/inventory", inventoryRouter);
 
 // Health check endpoint
 app.get("/", (req, res) => {
