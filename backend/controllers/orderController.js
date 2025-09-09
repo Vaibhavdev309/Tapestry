@@ -1,6 +1,7 @@
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import PriceRequest from "../models/PriceRequest.js";
+import emailService from "../services/emailService.js";
 
 const placeOrder = async (req, res) => {
   try {
@@ -39,6 +40,11 @@ const placeOrder = async (req, res) => {
         { new: true }
       );
     }
+
+    // Send order confirmation email (async, don't wait for it)
+    emailService.sendOrderConfirmationEmail(newOrder._id).catch(error => {
+      console.error("Failed to send order confirmation email:", error);
+    });
 
     res.status(201).json({
       success: true,
@@ -141,6 +147,11 @@ const updateStatus = async (req, res) => {
         message: "Order not found"
       });
     }
+
+    // Send order status update email (async, don't wait for it)
+    emailService.sendOrderStatusUpdateEmail(orderId, 'previous').catch(error => {
+      console.error("Failed to send order status update email:", error);
+    });
     
     res.json({ 
       success: true, 

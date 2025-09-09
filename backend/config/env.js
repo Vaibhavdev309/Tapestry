@@ -12,6 +12,10 @@ const requiredEnvVars = [
   'CLOUDINARY_SECRET_KEY',
   'RAZORPAY_KEY_ID',
   'RAZORPAY_KEY_SECRET',
+  'EMAIL_HOST',
+  'EMAIL_PORT',
+  'EMAIL_USER',
+  'EMAIL_PASS',
   'PORT'
 ];
 

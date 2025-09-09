@@ -2,6 +2,7 @@ import userModel from "../models/userModel.js";
 import validator from "validator";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import emailService from "../services/emailService.js";
 
 const loginUser = async (req, res) => {
   try {
@@ -79,6 +80,11 @@ const registerUser = async (req, res) => {
     
     const user = await newUser.save();
     const token = createToken(user._id);
+    
+    // Send welcome email (async, don't wait for it)
+    emailService.sendWelcomeEmail(user).catch(error => {
+      console.error("Failed to send welcome email:", error);
+    });
     
     res.status(201).json({ 
       success: true, 

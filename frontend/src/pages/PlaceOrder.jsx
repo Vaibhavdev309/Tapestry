@@ -5,6 +5,7 @@ import { assets } from "../assets/assets";
 import axios from "axios";
 import { ShopContext } from "../context/ShopContext";
 import { toast } from "react-toastify";
+import toastService from "../utils/toastService";
 import { useParams } from "react-router-dom";
 
 const PlaceOrder = () => {
@@ -37,13 +38,13 @@ const PlaceOrder = () => {
 
         if (response.data.success) {
           if (response.data.priceRequest.status !== "approved") {
-            toast.error("This price request is not approved");
+            toastService.showOrderError("This price request is not approved");
             navigate("/cart");
           }
           setPriceRequest(response.data.priceRequest);
         }
       } catch (error) {
-        toast.error("Error fetching price request");
+        toastService.showOrderError("Error fetching price request");
         navigate("/cart");
       }
     };
@@ -78,7 +79,7 @@ const PlaceOrder = () => {
   const displayRazorpay = async (orderData) => {
     const res = await loadRazorpayScript();
     if (!res) {
-      toast.error("Razorpay SDK failed to load");
+      toastService.showPaymentError("Razorpay SDK failed to load");
       return;
     }
 
@@ -104,14 +105,15 @@ const PlaceOrder = () => {
           );
 
           if (verifyResponse.data.success) {
-            toast.success("Payment successful! Order placed.");
+            toastService.showPaymentSuccess("Payment successful! Order placed.");
+            toastService.showEmailNotification("Order confirmation email sent to your inbox");
             navigate("/orders");
           } else {
-            toast.error("Payment verification failed");
+            toastService.showPaymentError("Payment verification failed");
           }
         } catch (error) {
           console.error("Payment verification error:", error);
-          toast.error("Payment verification failed");
+          toastService.showPaymentError("Payment verification failed");
         } finally {
           setIsProcessing(false);
         }
@@ -167,10 +169,11 @@ const PlaceOrder = () => {
         );
 
         if (response.data.success) {
-          toast.success(response.data.message);
+          toastService.showOrderSuccess(response.data.message);
+          toastService.showEmailNotification("Order confirmation email sent to your inbox");
           navigate("/orders");
         } else {
-          toast.error(response.data.message);
+          toastService.showOrderError(response.data.message);
         }
       } else if (method === "razorpay") {
         // Razorpay Payment
@@ -189,13 +192,13 @@ const PlaceOrder = () => {
             razorpayOrderId: response.data.razorpayOrderId,
           });
         } else {
-          toast.error(response.data.message);
+          toastService.showOrderError(response.data.message);
           setIsProcessing(false);
         }
       }
     } catch (error) {
       console.error(error);
-      toast.error(error.response?.data?.message || "Order placement failed");
+      toastService.showOrderError(error.response?.data?.message || "Order placement failed");
       setIsProcessing(false);
     }
   };

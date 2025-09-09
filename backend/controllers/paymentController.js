@@ -2,6 +2,7 @@ import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import PriceRequest from "../models/PriceRequest.js";
 import { createOrder, verifySignature, fetchPayment, refundPayment } from "../config/razorpay.js";
+import emailService from "../services/emailService.js";
 import crypto from "crypto";
 
 // Generate unique order number
@@ -161,6 +162,11 @@ export const verifyRazorpayPayment = async (req, res) => {
         { new: true }
       );
     }
+
+    // Send payment confirmation email (async, don't wait for it)
+    emailService.sendPaymentConfirmationEmail(order._id, paymentDetails.payment).catch(error => {
+      console.error("Failed to send payment confirmation email:", error);
+    });
 
     res.json({
       success: true,

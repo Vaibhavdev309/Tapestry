@@ -2,6 +2,7 @@ import { createContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import toastService from "../utils/toastService";
 
 export const ShopContext = createContext();
 
@@ -68,9 +69,9 @@ const ShopContextProvider = (props) => {
           }
         );
         if (response.data.success) {
-          toast.success(response.data.message);
+          toastService.showAuthSuccess(response.data.message);
         } else {
-          toast.error(response.data.message);
+          toastService.showAuthError(response.data.message);
         }
       } catch (error) {
         toast.error(error.message);
@@ -134,9 +135,9 @@ const ShopContextProvider = (props) => {
           }
         );
         if (response.data.success) {
-          toast.success(response.data.message);
+          toastService.showAuthSuccess(response.data.message);
         } else {
-          toast.error(response.data.message);
+          toastService.showAuthError(response.data.message);
         }
       } catch (error) {
         toast.error(error.message);
