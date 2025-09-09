@@ -22,16 +22,40 @@ const orderSchema = new mongoose.Schema(
     items: [orderItemSchema],
     amount: { type: Number, required: true },
     address: { type: Object, required: true },
-    paymentMethod: { type: String, required: true },
+    paymentMethod: { 
+      type: String, 
+      enum: ["cod", "razorpay", "stripe"],
+      required: true 
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "pending",
+    },
+    paymentDetails: {
+      razorpayOrderId: String,
+      razorpayPaymentId: String,
+      razorpaySignature: String,
+      transactionId: String,
+      gatewayResponse: Object,
+    },
     status: {
       type: String,
-      enum: ["processing", "shipped", "delivered", "cancelled"],
-      default: "processing",
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
+      default: "pending",
     },
     priceRequest: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "PriceRequest",
     },
+    orderNumber: {
+      type: String,
+      unique: true,
+      required: true,
+    },
+    trackingNumber: String,
+    estimatedDelivery: Date,
+    notes: String,
   },
   { timestamps: true }
 );

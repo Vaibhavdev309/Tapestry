@@ -10,6 +10,8 @@ const requiredEnvVars = [
   'CLOUDINARY_NAME',
   'CLOUDINARY_API_KEY',
   'CLOUDINARY_SECRET_KEY',
+  'RAZORPAY_KEY_ID',
+  'RAZORPAY_KEY_SECRET',
   'PORT'
 ];
 

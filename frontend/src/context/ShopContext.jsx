@@ -20,7 +20,7 @@ const ShopContextProvider = (props) => {
       const response = await axios.post(
         backendUrl + "/api/price-request/create",
         { items },
-        { headers: { token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       return response.data;
     } catch (error) {
@@ -32,7 +32,7 @@ const ShopContextProvider = (props) => {
     try {
       const response = await axios.get(
         backendUrl + "/api/price-request/current",
-        { headers: { token } }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       return response.data;
     } catch (error) {

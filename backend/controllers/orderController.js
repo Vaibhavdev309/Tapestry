@@ -4,31 +4,58 @@ import PriceRequest from "../models/PriceRequest.js";
 
 const placeOrder = async (req, res) => {
   try {
-    const { userId, items, amount, address } = req.body;
+    const { userId, items, amount, address, paymentMethod = "cod", priceRequestId } = req.body;
+
+    // Generate order number
+    const generateOrderNumber = () => {
+      const timestamp = Date.now().toString();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      return `ORD-${timestamp.slice(-6)}-${random}`;
+    };
+
     const orderData = {
       userId,
       items,
       amount,
       address,
-      paymentMethod: "COD",
-      payment: false,
-      date: Date.now(),
+      paymentMethod,
+      paymentStatus: paymentMethod === "cod" ? "pending" : "pending",
+      status: "pending",
+      orderNumber: generateOrderNumber(),
+      priceRequest: priceRequestId || null,
     };
+
     const newOrder = new orderModel(orderData);
     await newOrder.save();
+
+    // Clear user cart
     await userModel.findByIdAndUpdate(userId, { cartData: {} });
-    await PriceRequest.findByIdAndUpdate(
-      req.body.priceRequest,
-      { status: "completed" },
-      { new: true }
-    );
+
+    // Update price request status if exists
+    if (priceRequestId) {
+      await PriceRequest.findByIdAndUpdate(
+        priceRequestId,
+        { status: "completed" },
+        { new: true }
+      );
+    }
 
     res.status(201).json({
       success: true,
       message: "Order placed successfully",
+      order: {
+        id: newOrder._id,
+        orderNumber: newOrder.orderNumber,
+        amount: newOrder.amount,
+        paymentMethod: newOrder.paymentMethod,
+        status: newOrder.status,
+      },
     });
   } catch (error) {
-    res.json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to place order" 
+    });
   }
 };
 

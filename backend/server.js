@@ -18,6 +18,7 @@ import orderRouter from "./routes/orderRoute.js";
 import chatRouter from "./routes/chatRoute.js";
 import messageRouter from "./routes/messageRoute.js";
 import priceRequestRouter from "./routes/priceRequestRouter.js";
+import paymentRouter from "./routes/paymentRoute.js";
 
 // Validate environment variables
 validateEnv();
@@ -107,6 +108,7 @@ app.use("/api/order", orderRouter);
 app.use("/api/chat", chatRouter);
 app.use("/api/message", messageRouter);
 app.use("/api/price-requests", priceRequestRouter);
+app.use("/api/payment", paymentRouter);
 
 // Health check endpoint
 app.get("/", (req, res) => {
