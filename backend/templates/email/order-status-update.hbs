@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Status Update - Tapestry Store</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            border-bottom: 3px solid #3B82F6;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #3B82F6;
+            margin-bottom: 10px;
+        }
+        .status-icon {
+            font-size: 48px;
+            margin: 20px 0;
+        }
+        .status-pending { color: #ffc107; }
+        .status-processing { color: #17a2b8; }
+        .status-shipped { color: #28a745; }
+        .status-delivered { color: #6f42c1; }
+        .status-cancelled { color: #dc3545; }
+        .order-number {
+            background-color: #3B82F6;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 18px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        .status-details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .detail-value {
+            color: #6c757d;
+        }
+        .tracking-info {
+            background-color: #e8f4fd;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+            color: #6c757d;
+        }
+        .button {
+            display: inline-block;
+            background-color: #3B82F6;
+            color: white;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .progress-bar {
+            background-color: #e9ecef;
+            border-radius: 10px;
+            height: 20px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background-color: #3B82F6;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        .progress-pending { width: 25%; background-color: #ffc107; }
+        .progress-processing { width: 50%; background-color: #17a2b8; }
+        .progress-shipped { width: 75%; background-color: #28a745; }
+        .progress-delivered { width: 100%; background-color: #6f42c1; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🏺 Tapestry Store</div>
+            <div class="status-icon status-{{status}}">
+                {{#if (eq status 'pending')}}⏳{{/if}}
+                {{#if (eq status 'processing')}}🔄{{/if}}
+                {{#if (eq status 'shipped')}}🚚{{/if}}
+                {{#if (eq status 'delivered')}}✅{{/if}}
+                {{#if (eq status 'cancelled')}}❌{{/if}}
+            </div>
+            <h1>Order Status Update</h1>
+            <p>Your order status has been updated</p>
+        </div>
+
+        <div style="text-align: center;">
+            <div class="order-number">Order #{{orderNumber}}</div>
+            <div class="progress-bar">
+                <div class="progress-fill progress-{{status}}"></div>
+            </div>
+        </div>
+
+        <div class="status-details">
+            <h3>Status Details</h3>
+            <div class="detail-row">
+                <span class="detail-label">Current Status:</span>
+                <span class="detail-value" style="text-transform: capitalize; font-weight: bold;">{{status}}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Updated On:</span>
+                <span class="detail-value">{{updateDate}}</span>
+            </div>
+            {{#if trackingNumber}}
+            <div class="detail-row">
+                <span class="detail-label">Tracking Number:</span>
+                <span class="detail-value">{{trackingNumber}}</span>
+            </div>
+            {{/if}}
+            {{#if estimatedDelivery}}
+            <div class="detail-row">
+                <span class="detail-label">Estimated Delivery:</span>
+                <span class="detail-value">{{estimatedDelivery}}</span>
+            </div>
+            {{/if}}
+        </div>
+
+        {{#if trackingNumber}}
+        <div class="tracking-info">
+            <h3>Track Your Package</h3>
+            <p>Use the tracking number <strong>{{trackingNumber}}</strong> to track your package on the courier's website.</p>
+            <a href="{{trackingUrl}}" class="button">Track Package</a>
+        </div>
+        {{/if}}
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{trackOrderUrl}}" class="button">View Order Details</a>
+            <a href="{{websiteUrl}}" class="button">Continue Shopping</a>
+        </div>
+
+        <div style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3>Status Information</h3>
+            {{#if (eq status 'pending')}}
+            <p>Your order is being reviewed and will be processed shortly.</p>
+            {{/if}}
+            {{#if (eq status 'processing')}}
+            <p>Your order is being prepared for shipment. We'll notify you once it's shipped.</p>
+            {{/if}}
+            {{#if (eq status 'shipped')}}
+            <p>Great news! Your order has been shipped and is on its way to you.</p>
+            {{/if}}
+            {{#if (eq status 'delivered')}}
+            <p>Your order has been delivered successfully. Thank you for shopping with us!</p>
+            {{/if}}
+            {{#if (eq status 'cancelled')}}
+            <p>Your order has been cancelled. If you have any questions, please contact our support team.</p>
+            {{/if}}
+        </div>
+
+        <div class="footer">
+            <p>If you have any questions about your order, please contact our support team.</p>
+            <p>
+                <strong>Tapestry Store</strong><br>
+                Email: support@tapestrystore.com<br>
+                Phone: +91 9876543210
+            </p>
+            <p style="font-size: 12px; margin-top: 20px;">
+                This email was sent to {{email}} regarding order #{{orderNumber}}.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

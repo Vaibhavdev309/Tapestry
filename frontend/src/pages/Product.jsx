@@ -3,6 +3,9 @@ import { useParams } from "react-router-dom";
 import { ShopContext } from "../context/ShopContext";
 import { assets } from "../assets/assets";
 import RelatedProduct from "../components/RelatedProduct";
+import ProductRating from "../components/ProductRating";
+import ReviewDisplay from "../components/ReviewDisplay";
+import ReviewForm from "../components/ReviewForm";
 
 const Product = () => {
   const { productId } = useParams();
@@ -10,6 +13,8 @@ const Product = () => {
   const { products, addToCart } = useContext(ShopContext);
   const [image, setImage] = useState("");
   const [size, setSize] = useState("");
+  const [activeTab, setActiveTab] = useState("description");
+  const [reviewsRefreshed, setReviewsRefreshed] = useState(0);
 
   const fetchProductData = async () => {
     products.map((item) => {
@@ -46,13 +51,12 @@ const Product = () => {
         </div>
         <div className="flex-1">
           <h1 className="font-medium text-2xl mt-2">{productData.name}</h1>
-          <div className="flex items-center gap-1 mt-2">
-            <img className="w-3 5" src={assets.star_icon} alt="" />
-            <img className="w-3 5" src={assets.star_icon} alt="" />
-            <img className="w-3 5" src={assets.star_icon} alt="" />
-            <img className="w-3 5" src={assets.star_icon} alt="" />
-            <img className="w-3 5" src={assets.star_icon} alt="" />
-            <p className="pl-2 ">(122)</p>
+          <div className="mt-2">
+            <ProductRating 
+              rating={productData.reviews?.averageRating || 0} 
+              reviewCount={productData.reviews?.totalReviews || 0}
+              size="md"
+            />
           </div>
           <p className="mt-5 text-3xl font-medium">{productData.description}</p>
           <div className="flex flex-col gap-4 my-8">
@@ -87,15 +91,56 @@ const Product = () => {
       </div>
       <div className="mt-20">
         <div className="flex">
-          <b className="border px-5 py-3 text-sm">Description</b>
-          <p className="border px-5 py-3 text-sm">Reviews</p>
+          <button
+            onClick={() => setActiveTab("description")}
+            className={`border px-5 py-3 text-sm ${
+              activeTab === "description" 
+                ? "bg-gray-100 font-semibold" 
+                : "hover:bg-gray-50"
+            }`}
+          >
+            Description
+          </button>
+          <button
+            onClick={() => setActiveTab("reviews")}
+            className={`border px-5 py-3 text-sm ${
+              activeTab === "reviews" 
+                ? "bg-gray-100 font-semibold" 
+                : "hover:bg-gray-50"
+            }`}
+          >
+            Reviews ({productData.reviews?.totalReviews || 0})
+          </button>
         </div>
-        <div className="flex flex-col gap-4 border px-6 py-5 text-sm text-gray-500">
-          <p>asdfalsdf sjdf lsjlf jal jfaljf alkjf; alj</p>
-          <p>
-            sdf;la ls ;laj lj sll sjl ja;lj ;lja ljf lajflaf l;asjfla lsj l;a
-            fal;f alsflasfkajs lfls{" "}
-          </p>
+        
+        <div className="border px-6 py-5">
+          {activeTab === "description" ? (
+            <div className="flex flex-col gap-4 text-sm text-gray-500">
+              <p>{productData.description}</p>
+              <div className="mt-4">
+                <h4 className="font-semibold text-gray-700 mb-2">Product Details:</h4>
+                <ul className="space-y-1">
+                  <li>• 100% Pure Silk Made Product</li>
+                  <li>• Cash on delivery is available on this product</li>
+                  <li>• Easy return and exchange policy within 7 days</li>
+                  <li>• Premium quality materials</li>
+                  <li>• Handcrafted with attention to detail</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <ReviewDisplay 
+                productId={productId} 
+                key={reviewsRefreshed}
+              />
+              <ReviewForm 
+                productId={productId}
+                productName={productData.name}
+                onReviewSubmitted={() => setReviewsRefreshed(prev => prev + 1)}
+              />
+            </div>
+          )}
         </div>
       </div>
       <RelatedProduct

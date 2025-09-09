@@ -1,5 +1,6 @@
 import cloudinary from "cloudinary";
 import productModel from "../models/productModel.js";
+import emailService from "../services/emailService.js";
 const addProduct = async (req, res) => {
   try {
     const {
@@ -80,6 +81,17 @@ const addProduct = async (req, res) => {
       sizes: parsedSizes,
       image: imagesUrl,
       date: Date.now(),
+      // Initialize inventory for each size
+      inventory: {
+        sizeInventory: parsedSizes.map(size => ({
+          size: size,
+          quantity: 0, // Default to 0, admin can update later
+          reserved: 0,
+          lowStockThreshold: 10, // Default threshold
+          lastUpdated: new Date()
+        })),
+        stockHistory: []
+      }
     };
     
     const product = new productModel(productData);
