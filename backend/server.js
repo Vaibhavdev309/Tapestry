@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import mongoSanitize from "express-mongo-sanitize";
+import jwt from "jsonwebtoken";
 import "dotenv/config";
 import connectDB from "./config/mongodb.js";
 import validateEnv from "./config/env.js";
@@ -151,47 +152,91 @@ const io = new Server(server, {
   },
 });
 
+// Socket.io authentication middleware
+io.use((socket, next) => {
+  const token = socket.handshake.auth.token;
+  
+  if (!token) {
+    return next(new Error('Authentication error: No token provided'));
+  }
+  
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    socket.userId = decoded.id;
+    socket.userRole = decoded.role || 'user';
+    next();
+  } catch (err) {
+    next(new Error('Authentication error: Invalid token'));
+  }
+});
+
 io.on("connection", (socket) => {
-  console.log("Socket connected: " + socket.id);
+  console.log(`Socket connected: ${socket.id} (User: ${socket.userId}, Role: ${socket.userRole})`);
 
   socket.on("setup", (userData) => {
-    if (userData._id === "admin") {
-      socket.join("admin");
-    } else {
-      socket.join(userData._id);
+    try {
+      if (socket.userRole === 'admin') {
+        socket.join("admin");
+        console.log("Admin joined admin room");
+      } else {
+        socket.join(socket.userId);
+        console.log(`User ${socket.userId} joined their room`);
+      }
+      socket.emit("connection", { success: true });
+    } catch (error) {
+      socket.emit("connection", { success: false, error: "Setup failed" });
     }
-    socket.emit("connection");
   });
 
   socket.on("join chat", (room) => {
-    socket.join(room);
-    console.log("User joined chat room: " + room);
+    // Validate that user can join this chat room
+    if (socket.userRole === 'admin' || socket.userId === room) {
+      socket.join(room);
+      console.log(`User ${socket.userId} joined chat room: ${room}`);
+    } else {
+      socket.emit("error", { message: "Unauthorized to join this chat" });
+    }
   });
 
   socket.on("new Message", (newMessageReceived) => {
-    const chatId = newMessageReceived.message.chatId;
-    const sender = newMessageReceived.message.sender;
+    try {
+      const chatId = newMessageReceived.message.chatId;
+      const sender = newMessageReceived.message.sender;
 
-    io.to(chatId).emit("message received", newMessageReceived.message);
+      // Validate sender matches socket user
+      const expectedSender = socket.userRole === 'admin' ? 'admin' : 'user';
+      if (sender !== expectedSender) {
+        socket.emit("error", { message: "Sender mismatch" });
+        return;
+      }
 
-    if (sender === "user") {
-      io.to("admin").emit("unread update", { chatId });
-    } else {
-      io.to(newMessageReceived.message.chatId).emit("unread update", {
-        chatId,
-      });
+      io.to(chatId).emit("message received", newMessageReceived.message);
+
+      if (sender === "user") {
+        io.to("admin").emit("unread update", { chatId });
+      } else {
+        io.to(chatId).emit("unread update", { chatId });
+      }
+    } catch (error) {
+      socket.emit("error", { message: "Failed to process message" });
     }
   });
 
   socket.on("typing", (chatId) => {
-    socket.to(chatId).emit("typing");
+    // Validate user can type in this chat
+    if (socket.userRole === 'admin' || socket.userId === chatId) {
+      socket.to(chatId).emit("typing", { userId: socket.userId });
+    }
   });
 
   socket.on("stop typing", (chatId) => {
-    socket.to(chatId).emit("stop typing");
+    // Validate user can type in this chat
+    if (socket.userRole === 'admin' || socket.userId === chatId) {
+      socket.to(chatId).emit("stop typing", { userId: socket.userId });
+    }
   });
 
   socket.on("disconnect", () => {
-    console.log("Socket disconnected: " + socket.id);
+    console.log(`Socket disconnected: ${socket.id} (User: ${socket.userId})`);
   });
 });

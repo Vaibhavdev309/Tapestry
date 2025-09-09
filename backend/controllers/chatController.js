@@ -6,7 +6,10 @@ const accessChat = async (req, res) => {
     const { userId } = req.body;
 
     if (!userId) {
-      return res.json({ success: false, message: "Invalid user id" });
+      return res.status(400).json({ 
+        success: false, 
+        message: "User ID is required" 
+      });
     }
 
     let chat = await chatModel
@@ -20,9 +23,13 @@ const accessChat = async (req, res) => {
         select: "name email",
       });
     }
+    
     res.json({ success: true, chat });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to access chat" 
+    });
   }
 };
 
@@ -30,19 +37,30 @@ const searchUser = async (req, res) => {
   try {
     const { search } = req.query;
 
-    if (!search) {
-      return res.json({ success: false, message: "Invalid search query" });
+    if (!search || search.length < 2) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Search query must be at least 2 characters" 
+      });
     }
 
     const users = await userModel
       .find({
-        name: { $regex: search, $options: "i" },
+        $or: [
+          { name: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } }
+        ],
+        isActive: true
       })
-      .select("name email");
+      .select("name email")
+      .limit(10);
 
     res.json({ success: true, users });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to search users" 
+    });
   }
 };
 
@@ -53,9 +71,13 @@ const fetchChats = async (req, res) => {
       .populate("userId", "name email")
       .populate("latestMessage")
       .sort({ updatedAt: -1 });
+    
     res.json({ success: true, chats });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch chats" 
+    });
   }
 };
 
