@@ -58,6 +58,18 @@ const Sidebar = ({ closeSidebar, isMobile }) => {
         </NavLink>
 
         <NavLink
+          to="/reviews"
+          onClick={isMobile ? closeSidebar : null}
+          className={({ isActive }) =>
+            `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors border-l-4
+            ${isActive ? activeStyle : normalStyle}`
+          }
+        >
+          <img className="w-5 h-5" src={assets.order_icon} alt="Reviews" />
+          <span className="text-sm lg:text-base">Reviews</span>
+        </NavLink>
+
+        <NavLink
           to="/chats"
           onClick={isMobile ? closeSidebar : null}
           className={({ isActive }) =>

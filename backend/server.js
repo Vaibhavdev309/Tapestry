@@ -21,6 +21,7 @@ import priceRequestRouter from "./routes/priceRequestRouter.js";
 import paymentRouter from "./routes/paymentRoute.js";
 import notificationRouter from "./routes/notificationRoute.js";
 import inventoryRouter from "./routes/inventoryRoute.js";
+import reviewRouter from "./routes/reviewRoute.js";
 
 // Validate environment variables
 validateEnv();
@@ -113,6 +114,7 @@ app.use("/api/price-requests", priceRequestRouter);
 app.use("/api/payment", paymentRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/inventory", inventoryRouter);
+app.use("/api/reviews", reviewRouter);
 
 // Health check endpoint
 app.get("/", (req, res) => {

@@ -136,6 +136,21 @@ const productSchema = new mongoose.Schema({
   views: { type: Number, default: 0 },
   sales: { type: Number, default: 0 },
   lastSold: Date,
+  
+  // Review Statistics
+  reviews: {
+    totalReviews: { type: Number, default: 0 },
+    averageRating: { type: Number, default: 0, min: 0, max: 5 },
+    ratingDistribution: {
+      five: { type: Number, default: 0 },
+      four: { type: Number, default: 0 },
+      three: { type: Number, default: 0 },
+      two: { type: Number, default: 0 },
+      one: { type: Number, default: 0 }
+    },
+    verifiedReviews: { type: Number, default: 0 },
+    lastReviewDate: Date
+  },
 }, {
   timestamps: true
 });
@@ -303,6 +318,34 @@ productSchema.statics.getInventoryReport = function() {
       }
     }
   ]);
+};
+
+// Method to update review statistics
+productSchema.methods.updateReviewStats = async function() {
+  const Review = mongoose.model('Review');
+  
+  const stats = await Review.getProductStats(this._id);
+  
+  if (stats.length > 0) {
+    const stat = stats[0];
+    this.reviews = {
+      totalReviews: stat.totalReviews,
+      averageRating: stat.averageRating,
+      ratingDistribution: stat.ratingDistribution,
+      verifiedReviews: stat.verifiedReviews,
+      lastReviewDate: new Date()
+    };
+  } else {
+    this.reviews = {
+      totalReviews: 0,
+      averageRating: 0,
+      ratingDistribution: { five: 0, four: 0, three: 0, two: 0, one: 0 },
+      verifiedReviews: 0,
+      lastReviewDate: null
+    };
+  }
+  
+  return this.save();
 };
 
 const productModel =
